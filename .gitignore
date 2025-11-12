@@ -12,6 +12,9 @@
 
 .env
 
+# VS Code MCP configuration (contains sensitive API keys)
+.vscode/mcp.json
+
 /frontend/static/dev
 /frontend/VERSION
 
