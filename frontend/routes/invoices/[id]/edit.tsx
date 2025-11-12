@@ -11,8 +11,12 @@ import { useTranslations } from "../../../i18n/context.tsx";
 
 type Item = {
   description: string;
-  quantity: number;
-  unitPrice: number;
+  quantity?: number;
+  unitPrice?: number;
+  hours?: number;
+  rate?: number;
+  rateModifierId?: string;
+  distance?: number;
   notes?: string;
   taxes?: Array<{ percent: number }>;
 };

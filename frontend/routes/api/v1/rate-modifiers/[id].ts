@@ -1,8 +1,8 @@
 import { Handlers } from "$fresh/server.ts";
-import { BACKEND_URL, getAuthHeaderFromCookie } from "../../../utils/backend.ts";
+import { BACKEND_URL, getAuthHeaderFromCookie } from "../../../../utils/backend.ts";
 
-// Proxy rate-modifiers API to backend (all methods)
-async function proxyToBackend(req: Request) {
+// Proxy individual rate-modifier API to backend (GET/PUT/DELETE by ID)
+async function proxyToBackend(req: Request, ctx: any) {
   const auth = getAuthHeaderFromCookie(req.headers.get("cookie") || undefined);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { 
@@ -11,12 +11,12 @@ async function proxyToBackend(req: Request) {
     });
   }
 
-  const url = new URL(req.url);
-  const backendUrl = `${BACKEND_URL}/api/v1/rate-modifiers${url.pathname.replace('/api/v1/rate-modifiers', '')}`;
+  const { id } = ctx.params;
+  const backendUrl = `${BACKEND_URL}/api/v1/rate-modifiers/${id}`;
   
   const headers: HeadersInit = { Authorization: auth };
   
-  // Forward content-type for POST/PUT/PATCH
+  // Forward content-type for PUT/PATCH
   const contentType = req.headers.get("content-type");
   if (contentType) {
     headers["content-type"] = contentType;
@@ -27,8 +27,8 @@ async function proxyToBackend(req: Request) {
     headers,
   };
 
-  // Include body for POST/PUT/PATCH
-  if (["POST", "PUT", "PATCH"].includes(req.method)) {
+  // Include body for PUT/PATCH
+  if (["PUT", "PATCH"].includes(req.method)) {
     options.body = await req.text();
   }
 
@@ -51,7 +51,6 @@ async function proxyToBackend(req: Request) {
 
 export const handler: Handlers = {
   GET: proxyToBackend,
-  POST: proxyToBackend,
   PUT: proxyToBackend,
   PATCH: proxyToBackend,
   DELETE: proxyToBackend,

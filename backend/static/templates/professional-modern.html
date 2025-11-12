@@ -410,7 +410,7 @@
             <td class="quantity">{{hours}}</td>
             <td class="unit-price">{{currency}} {{rate}}</td>
             <td>{{rateModifierName}}{{#rateModifierMultiplier}} ({{rateModifierMultiplier}}x){{/rateModifierMultiplier}}</td>
-            <td>{{#distance}}{{distance}}{{/distance}}{{^distance}}-{{/distance}}</td>
+            <td>{{distance || '-'}}</td>
             <td class="line-total">{{currency}} {{lineTotal}}</td>
           </tr>
           {{/items}}

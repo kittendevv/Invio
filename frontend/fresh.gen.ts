@@ -8,6 +8,7 @@ import * as $api_admin_export_full from "./routes/api/admin/export/full.ts";
 import * as $api_auth_login from "./routes/api/auth/login.ts";
 import * as $api_templates_install from "./routes/api/templates/install.ts";
 import * as $api_v1_rate_modifiers from "./routes/api/v1/rate-modifiers.ts";
+import * as $api_v1_rate_modifiers_id_ from "./routes/api/v1/rate-modifiers/[id].ts";
 import * as $api_v1_settings from "./routes/api/v1/settings.ts";
 import * as $customers_id_ from "./routes/customers/[id].tsx";
 import * as $customers_id_cannot_delete from "./routes/customers/[id]/cannot-delete.tsx";
@@ -54,6 +55,7 @@ const manifest = {
     "./routes/api/auth/login.ts": $api_auth_login,
     "./routes/api/templates/install.ts": $api_templates_install,
     "./routes/api/v1/rate-modifiers.ts": $api_v1_rate_modifiers,
+    "./routes/api/v1/rate-modifiers/[id].ts": $api_v1_rate_modifiers_id_,
     "./routes/api/v1/settings.ts": $api_v1_settings,
     "./routes/customers/[id].tsx": $customers_id_,
     "./routes/customers/[id]/cannot-delete.tsx": $customers_id_cannot_delete,

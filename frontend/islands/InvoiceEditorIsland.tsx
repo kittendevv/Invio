@@ -235,8 +235,13 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
     if (defaultModifierId) {
       newItem.rateModifierId = defaultModifierId;
     }
+    // Set customer's default hourly rate if available
+    const customer = props.customers?.find(c => c.id === selectedCustomerId);
+    if (customer && customer.defaultHourlyRate) {
+      newItem.rate = String(customer.defaultHourlyRate);
+    }
     setItems((prev) => [...prev, newItem]);
-  }, [defaultModifierId]);
+  }, [defaultModifierId, props.customers, selectedCustomerId]);
 
   const handleRemoveItem = useCallback((id: string) => {
     setItems((prev) => {
