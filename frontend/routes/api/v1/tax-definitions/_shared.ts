@@ -1,4 +1,7 @@
-import { BACKEND_URL, getAuthHeaderFromCookie } from "../../../../utils/backend.ts";
+import {
+  BACKEND_URL,
+  getAuthHeaderFromCookie,
+} from "../../../../utils/backend.ts";
 
 export const TAX_SECTION_REDIRECT = "/settings?section=tax";
 
@@ -12,7 +15,8 @@ export function wantsJsonResponse(req: Request): boolean {
   if (req.method === "GET") return true;
   const accept = (req.headers.get("accept") || "").toLowerCase();
   const contentType = (req.headers.get("content-type") || "").toLowerCase();
-  return accept.includes("application/json") || contentType.includes("application/json");
+  return accept.includes("application/json") ||
+    contentType.includes("application/json");
 }
 
 export async function buildTaxDefinitionPayload(

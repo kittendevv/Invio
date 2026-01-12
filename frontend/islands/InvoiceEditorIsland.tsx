@@ -166,8 +166,12 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
   const [invoiceTaxDefinitionId, setInvoiceTaxDefinitionId] = useState(() => {
     if (!hasTaxDefinitions) return "";
     if (props.taxDefinitionId) return String(props.taxDefinitionId);
-    const rate = typeof props.taxRate === "number" ? props.taxRate : Number(props.taxRate || 0);
-    const match = (props.taxDefinitions || []).find((d) => Number(d.percent) === Number(rate));
+    const rate = typeof props.taxRate === "number"
+      ? props.taxRate
+      : Number(props.taxRate || 0);
+    const match = (props.taxDefinitions || []).find((d) =>
+      Number(d.percent) === Number(rate)
+    );
     return match ? String(match.id) : "";
   });
   const [invoiceTaxRate, setInvoiceTaxRate] = useState(
@@ -232,7 +236,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
         next[index] = {
           ...next[index],
           taxDefinitionId: value,
-          taxPercent: selected ? String(selected.percent) : next[index].taxPercent,
+          taxPercent: selected
+            ? String(selected.percent)
+            : next[index].taxPercent,
         };
         return next;
       });
@@ -248,7 +254,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
         const next = [...prev];
         if (product) {
           const taxDef = product.taxDefinitionId
-            ? (props.taxDefinitions ?? []).find((d) => d.id === product.taxDefinitionId)
+            ? (props.taxDefinitions ?? []).find((d) =>
+              d.id === product.taxDefinitionId
+            )
             : undefined;
           next[index] = {
             ...next[index],
@@ -256,7 +264,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
             description: product.description || product.name,
             unitPrice: String(product.unitPrice),
             taxDefinitionId: product.taxDefinitionId || "",
-            taxPercent: taxDef ? String(taxDef.percent) : next[index].taxPercent,
+            taxPercent: taxDef
+              ? String(taxDef.percent)
+              : next[index].taxPercent,
           };
         } else {
           next[index] = {
@@ -302,8 +312,8 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
     () => items.some((item) => item.description.trim().length > 0),
     [items],
   );
-  const inlineCustomerRequired =
-    isCreateMode && selectedCustomerId === "__create__";
+  const inlineCustomerRequired = isCreateMode &&
+    selectedCustomerId === "__create__";
   const customerError = isCreateMode && !inlineCustomerRequired &&
       !selectedCustomerId
     ? t("Please select a customer.")
@@ -516,7 +526,8 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
         <div class="form-control">
           <div class="label">
             <span class="label-text">
-              {t("Customer")} <span aria-hidden="true" class="text-error">*</span>
+              {t("Customer")}{" "}
+              <span aria-hidden="true" class="text-error">*</span>
             </span>
           </div>
           {isCreateMode
@@ -542,7 +553,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                 </select>
                 <div
                   id="customer-error"
-                  class={`text-error text-xs mt-1 ${customerError ? "" : "hidden"}`}
+                  class={`text-error text-xs mt-1 ${
+                    customerError ? "" : "hidden"
+                  }`}
                 >
                   {customerError ?? ""}
                 </div>
@@ -634,7 +647,8 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
             <label class="form-control sm:col-span-2">
               <div class="label">
                 <span class="label-text">
-                  {t("Customer name")} <span aria-hidden="true" class="text-error">*</span>
+                  {t("Customer name")}{" "}
+                  <span aria-hidden="true" class="text-error">*</span>
                 </span>
               </div>
               <input
@@ -821,12 +835,16 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
           <div class="w-16 sm:w-20 shrink-0 text-center">{t("Quantity")}</div>
           <div class="w-24 shrink-0 text-center">{t("Price")}</div>
           <div
-            class={`w-40 shrink-0 text-center per-line-tax-select ${taxMode === "line" && hasTaxDefinitions ? "" : "hidden"}`}
+            class={`w-40 shrink-0 text-center per-line-tax-select ${
+              taxMode === "line" && hasTaxDefinitions ? "" : "hidden"
+            }`}
           >
             {t("Tax")}
           </div>
           <div
-            class={`w-24 shrink-0 text-center per-line-tax-input ${taxMode === "line" ? "" : "hidden"}`}
+            class={`w-24 shrink-0 text-center per-line-tax-input ${
+              taxMode === "line" ? "" : "hidden"
+            }`}
           >
             {t("Tax %")}
           </div>
@@ -839,11 +857,12 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
             const indicator = dropIndicator && dropIndicator.id === item.id
               ? dropIndicator.position
               : null;
-            const rowStyle: JSX.CSSProperties | undefined = indicator === "before"
-              ? { borderTop: "2px solid hsl(var(--p))" }
-              : indicator === "after"
-              ? { borderBottom: "2px solid hsl(var(--p))" }
-              : undefined;
+            const rowStyle: JSX.CSSProperties | undefined =
+              indicator === "before"
+                ? { borderTop: "2px solid hsl(var(--p))" }
+                : indicator === "after"
+                ? { borderBottom: "2px solid hsl(var(--p))" }
+                : undefined;
             return (
               <div
                 key={item.id}
@@ -875,7 +894,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                           onChange={handleProductSelect(index)}
                           data-writable
                         >
-                          <option value="">Select product or enter custom...</option>
+                          <option value="">
+                            Select product or enter custom...
+                          </option>
                           {(props.products ?? []).map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.name} {p.sku ? `(${p.sku})` : ""}
@@ -894,7 +915,11 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                       />
                       <div class="grid grid-cols-2 gap-2">
                         <div>
-                          <label class="label py-1"><span class="label-text text-xs">{t("Quantity")}</span></label>
+                          <label class="label py-1">
+                            <span class="label-text text-xs">
+                              {t("Quantity")}
+                            </span>
+                          </label>
                           <input
                             type="number"
                             step="0.01"
@@ -907,7 +932,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                           />
                         </div>
                         <div>
-                          <label class="label py-1"><span class="label-text text-xs">{t("Price")}</span></label>
+                          <label class="label py-1">
+                            <span class="label-text text-xs">{t("Price")}</span>
+                          </label>
                           <input
                             type="number"
                             step="0.01"
@@ -921,10 +948,18 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                         </div>
                       </div>
                       {taxMode === "line" && (
-                        <div class={`grid ${hasTaxDefinitions ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
+                        <div
+                          class={`grid ${
+                            hasTaxDefinitions ? "grid-cols-2" : "grid-cols-1"
+                          } gap-2`}
+                        >
                           {hasTaxDefinitions && (
                             <div>
-                              <label class="label py-1"><span class="label-text text-xs">{t("Tax")}</span></label>
+                              <label class="label py-1">
+                                <span class="label-text text-xs">
+                                  {t("Tax")}
+                                </span>
+                              </label>
                               <select
                                 name={`item_${index}_tax_definition_id`}
                                 value={item.taxDefinitionId}
@@ -955,7 +990,11 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                             </div>
                           )}
                           <div>
-                            <label class="label py-1"><span class="label-text text-xs">{t("Tax %")}</span></label>
+                            <label class="label py-1">
+                              <span class="label-text text-xs">
+                                {t("Tax %")}
+                              </span>
+                            </label>
                             <input
                               type="number"
                               step="0.01"
@@ -1050,7 +1089,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                   <select
                     name={`item_${index}_tax_definition_id`}
                     value={item.taxDefinitionId}
-                    class={`select select-bordered w-40 shrink-0 per-line-tax-select ${taxMode === "line" && hasTaxDefinitions ? "" : "hidden"}`}
+                    class={`select select-bordered w-40 shrink-0 per-line-tax-select ${
+                      taxMode === "line" && hasTaxDefinitions ? "" : "hidden"
+                    }`}
                     onInput={handleItemTaxDefinitionChange(index)}
                     data-writable
                     disabled={isDemo || taxMode !== "line"}
@@ -1081,7 +1122,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
                     name={`item_${index}_tax_percent`}
                     value={item.taxPercent}
                     placeholder={t("Tax %")}
-                    class={`input input-bordered w-24 shrink-0 per-line-tax-input ${taxMode === "line" ? "" : "hidden"}`}
+                    class={`input input-bordered w-24 shrink-0 per-line-tax-input ${
+                      taxMode === "line" ? "" : "hidden"
+                    }`}
                     onInput={handleItemChange(index, "taxPercent")}
                     data-writable
                     disabled={taxMode !== "line"}
@@ -1111,7 +1154,10 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
         </div>
       </div>
 
-      <div id="totals-preview" class="bg-base-200 rounded-box p-3 sm:p-4 text-sm">
+      <div
+        id="totals-preview"
+        class="bg-base-200 rounded-box p-3 sm:p-4 text-sm"
+      >
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
           <div class="flex flex-col sm:flex-row gap-3 sm:gap-6">
             <div class="flex justify-between sm:block">
@@ -1122,7 +1168,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
             </div>
             <div
               id="preview-tax-container"
-              class={Math.abs(totals.rawTax) < 0.005 ? "hidden" : "flex justify-between sm:block"}
+              class={Math.abs(totals.rawTax) < 0.005
+                ? "hidden"
+                : "flex justify-between sm:block"}
             >
               <span class="text-base-content/60">{t("Tax")}:</span>
               <span class="font-semibold sm:ml-2" id="preview-tax">
@@ -1178,7 +1226,9 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
           </select>
         </label>
         <label
-          class={`form-control ${taxMode === "invoice" && hasTaxDefinitions ? "" : "hidden"}`}
+          class={`form-control ${
+            taxMode === "invoice" && hasTaxDefinitions ? "" : "hidden"
+          }`}
         >
           <div class="label">
             <span class="label-text">{t("Tax")}</span>
@@ -1266,7 +1316,7 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
             onInput={(event) =>
               setRoundingMode(
                 (event.currentTarget as HTMLSelectElement)
-                  .value === "total"
+                    .value === "total"
                   ? "total"
                   : "line",
               )}
@@ -1311,7 +1361,6 @@ export default function InvoiceEditorIsland(props: InvoiceEditorProps) {
           />
         </label>
       </div>
-
     </form>
   );
 }

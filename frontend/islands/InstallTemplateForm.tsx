@@ -37,7 +37,9 @@ export default function InstallTemplateForm() {
             body: JSON.stringify({ url: u }),
           });
           if (!res.ok) {
-            let message = t("Template install failed with status {{status}}", { status: `${res.status} ${res.statusText}` });
+            let message = t("Template install failed with status {{status}}", {
+              status: `${res.status} ${res.statusText}`,
+            });
             try {
               const data = await res.json();
               if (data && (data.error || data.message)) {
@@ -55,7 +57,9 @@ export default function InstallTemplateForm() {
       }}
     >
       <label class="form-control">
-        <div class="label"><span class="label-text">{t("Install from Manifest URL")}</span></div>
+        <div class="label">
+          <span class="label-text">{t("Install from Manifest URL")}</span>
+        </div>
         <div class="flex gap-2">
           <input
             name="manifestUrl"
@@ -64,7 +68,9 @@ export default function InstallTemplateForm() {
             value={url}
             onInput={(e) => setUrl((e.currentTarget as HTMLInputElement).value)}
           />
-          <button type="submit" class="btn btn-primary" disabled={busy}>{t("Install")}</button>
+          <button type="submit" class="btn btn-primary" disabled={busy}>
+            {t("Install")}
+          </button>
         </div>
         {err && <span class="text-error text-sm mt-1">{err}</span>}
       </label>

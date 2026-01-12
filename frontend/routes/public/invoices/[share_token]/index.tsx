@@ -1,10 +1,16 @@
-import { Handlers, PageProps } from "$fresh/server.ts";
-import { LuDownload, LuFileText, LuChevronDown, LuExternalLink } from "../../../../components/icons.tsx";
+import { PageProps } from "fresh";
+import {
+  LuChevronDown,
+  LuDownload,
+  LuExternalLink,
+  LuFileText,
+} from "../../../../components/icons.tsx";
+import { Handlers } from "fresh/compat";
 
 type Data = { shareToken: string; error?: string };
 
 export const handler: Handlers<Data> = {
-  GET(_req, ctx) {
+  GET(ctx) {
     const { share_token } = ctx.params as { share_token: string };
     const target = `/public/invoices/${share_token}/html`;
     return new Response(null, {
@@ -35,14 +41,25 @@ export default function PublicInvoicePage(props: PageProps<Data>) {
             Download UBL XML
           </a>
           <div class="dropdown dropdown-end">
-            <div tabIndex={0} role="button" class="btn btn-sm btn-outline flex gap-1">
+            <div
+              tabIndex={0}
+              role="button"
+              class="btn btn-sm btn-outline flex gap-1"
+            >
               <LuFileText size={16} />
               XML
               <LuChevronDown size={12} />
             </div>
-            <ul tabIndex={0} class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-2 w-56 p-2 shadow">
-              <li><a href={xmlUblUrl}>UBL 2.1 (PEPPOL)</a></li>
-              <li><a href={xmlFxUrl}>Factur‑X / ZUGFeRD 2.2</a></li>
+            <ul
+              tabIndex={0}
+              class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-2 w-56 p-2 shadow"
+            >
+              <li>
+                <a href={xmlUblUrl}>UBL 2.1 (PEPPOL)</a>
+              </li>
+              <li>
+                <a href={xmlFxUrl}>Factur‑X / ZUGFeRD 2.2</a>
+              </li>
             </ul>
           </div>
           <a class="btn btn-sm btn-ghost" href={htmlUrl} target="_blank">
@@ -56,7 +73,7 @@ export default function PublicInvoicePage(props: PageProps<Data>) {
           <span>{props.data.error}</span>
         </div>
       )}
-  <div class="bg-base-100 border border-base-300 rounded-box overflow-hidden">
+      <div class="bg-base-100 border border-base-300 rounded-box overflow-hidden">
         <iframe
           src={htmlUrl}
           class="w-full"

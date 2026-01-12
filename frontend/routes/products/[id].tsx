@@ -1,5 +1,5 @@
 /** Product detail page with edit/delete actions */
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../../components/Layout.tsx";
 import { LuPencil, LuTrash2 } from "../../components/icons.tsx";
 import ConfirmOnSubmit from "../../islands/ConfirmOnSubmit.tsx";
@@ -9,7 +9,9 @@ import {
   backendPost,
   getAuthHeaderFromCookie,
 } from "../../utils/backend.ts";
+import { renderPage } from "../../utils/render.tsx";
 import { useTranslations } from "../../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
 type Product = {
   id: string;
@@ -24,7 +26,12 @@ type Product = {
   createdAt: string;
   updatedAt: string;
 };
-type TaxDefinition = { id: string; code?: string; name?: string; percent: number };
+type TaxDefinition = {
+  id: string;
+  code?: string;
+  name?: string;
+  percent: number;
+};
 type Data = {
   authed: boolean;
   product?: Product;
@@ -35,7 +42,8 @@ type Data = {
 };
 
 export const handler: Handlers<Data> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -49,20 +57,27 @@ export const handler: Handlers<Data> = {
     try {
       const [product, usage, settings] = await Promise.all([
         backendGet(`/api/v1/products/${id}`, auth) as Promise<Product>,
-        backendGet(`/api/v1/products/${id}/usage`, auth) as Promise<{ usedInInvoices: boolean }>,
-        backendGet("/api/v1/settings", auth) as Promise<Record<string, unknown>>,
+        backendGet(`/api/v1/products/${id}/usage`, auth) as Promise<
+          { usedInInvoices: boolean }
+        >,
+        backendGet("/api/v1/settings", auth) as Promise<
+          Record<string, unknown>
+        >,
       ]);
 
       let taxDefinition: TaxDefinition | undefined;
       if (product.taxDefinitionId) {
         try {
-          taxDefinition = await backendGet(`/api/v1/tax-definitions/${product.taxDefinitionId}`, auth) as TaxDefinition;
+          taxDefinition = await backendGet(
+            `/api/v1/tax-definitions/${product.taxDefinitionId}`,
+            auth,
+          ) as TaxDefinition;
         } catch {
           // Tax definition may have been deleted
         }
       }
 
-      return ctx.render({
+      return renderPage(ctx, ProductDetail, {
         authed: true,
         product,
         taxDefinition,
@@ -70,10 +85,11 @@ export const handler: Handlers<Data> = {
         settings,
       });
     } catch (e) {
-      return ctx.render({ authed: true, error: String(e) });
+      return renderPage(ctx, ProductDetail, { authed: true, error: String(e) });
     }
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -95,7 +111,7 @@ export const handler: Handlers<Data> = {
           headers: { Location: "/products" },
         });
       } catch (e) {
-        return ctx.render({ authed: true, error: String(e) });
+        return renderPage(ctx, ProductDetail, { authed: true, error: String(e) });
       }
     }
 
@@ -107,7 +123,7 @@ export const handler: Handlers<Data> = {
           headers: { Location: `/products/${id}` },
         });
       } catch (e) {
-        return ctx.render({ authed: true, error: String(e) });
+        return renderPage(ctx, ProductDetail, { authed: true, error: String(e) });
       }
     }
 
@@ -156,7 +172,9 @@ export default function ProductDetail(props: PageProps<Data>) {
       <ConfirmOnSubmit />
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <div>
-          <h1 class="text-2xl font-semibold">{t("Product")} {p?.name || p?.id}</h1>
+          <h1 class="text-2xl font-semibold">
+            {t("Product")} {p?.name || p?.id}
+          </h1>
           {p && !p.isActive && (
             <span class="badge badge-ghost mt-1">{t("Inactive")}</span>
           )}
@@ -170,7 +188,11 @@ export default function ProductDetail(props: PageProps<Data>) {
             {!p.isActive && (
               <form method="post">
                 <input type="hidden" name="intent" value="reactivate" />
-                <button type="submit" class="btn btn-sm btn-success" disabled={demoMode}>
+                <button
+                  type="submit"
+                  class="btn btn-sm btn-success"
+                  disabled={demoMode}
+                >
                   {t("Reactivate")}
                 </button>
               </form>
@@ -179,11 +201,17 @@ export default function ProductDetail(props: PageProps<Data>) {
               <form
                 method="post"
                 data-confirm={usedInInvoices
-                  ? t("This product is used in invoices. Deleting will deactivate it. Continue?")
+                  ? t(
+                    "This product is used in invoices. Deleting will deactivate it. Continue?",
+                  )
                   : t("Delete this product? This cannot be undone.")}
               >
                 <input type="hidden" name="intent" value="delete" />
-                <button type="submit" class="btn btn-sm btn-outline btn-error" disabled={demoMode}>
+                <button
+                  type="submit"
+                  class="btn btn-sm btn-outline btn-error"
+                  disabled={demoMode}
+                >
                   <LuTrash2 size={16} />
                   {usedInInvoices ? t("Deactivate") : t("Delete")}
                 </button>
@@ -210,7 +238,9 @@ export default function ProductDetail(props: PageProps<Data>) {
 
               <div>
                 <div class="text-sm opacity-70">{t("Unit Price")}</div>
-                <div class="font-mono text-lg">{formatCurrency(p.unitPrice, currency)}</div>
+                <div class="font-mono text-lg">
+                  {formatCurrency(p.unitPrice, currency)}
+                </div>
               </div>
 
               {p.sku && (
@@ -237,7 +267,10 @@ export default function ProductDetail(props: PageProps<Data>) {
               {taxDef && (
                 <div>
                   <div class="text-sm opacity-70">{t("Tax Definition")}</div>
-                  <div>{taxDef.name || taxDef.code || `${taxDef.percent}%`} ({taxDef.percent}%)</div>
+                  <div>
+                    {taxDef.name || taxDef.code || `${taxDef.percent}%`}{" "}
+                    ({taxDef.percent}%)
+                  </div>
                 </div>
               )}
             </div>

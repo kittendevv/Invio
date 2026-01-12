@@ -36,15 +36,24 @@ export default function ExportAll() {
       if (!login?.token) {
         throw new Error("Login response missing token");
       }
-      const url = `/api/admin/export/full?includeDb=${encodeURIComponent(includeDb)}&includeJson=${encodeURIComponent(includeJson)}&includeAssets=${encodeURIComponent(includeAssets)}`;
-      const resp = await fetch(url, { headers: { Authorization: `Bearer ${login.token}` } });
+      const url = `/api/admin/export/full?includeDb=${
+        encodeURIComponent(includeDb)
+      }&includeJson=${encodeURIComponent(includeJson)}&includeAssets=${
+        encodeURIComponent(includeAssets)
+      }`;
+      const resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${login.token}` },
+      });
       if (!resp.ok) {
         const responseText = await resp.text();
-        const fallback = t("Export failed with status {{status}}", { status: String(resp.status) });
+        const fallback = t("Export failed with status {{status}}", {
+          status: String(resp.status),
+        });
         throw new Error(responseText || fallback);
       }
       const blob = await resp.blob();
-      const cd = resp.headers.get("content-disposition") || 'attachment; filename="invio-export.tar.gz"';
+      const cd = resp.headers.get("content-disposition") ||
+        'attachment; filename="invio-export.tar.gz"';
       const m = /filename="?([^";]+)"?/i.exec(cd);
       const name = (m && m[1]) || "invio-export.tar.gz";
       const a = document.createElement("a");
@@ -58,7 +67,9 @@ export default function ExportAll() {
       setStatus(t("Export downloaded."));
     } catch (err) {
       console.error(err);
-      const message = err && (err as Error).message ? (err as Error).message : String(err);
+      const message = err && (err as Error).message
+        ? (err as Error).message
+        : String(err);
       setStatus(t("Export failed: {{message}}", { message }));
     } finally {
       setBusy(false);
@@ -70,27 +81,84 @@ export default function ExportAll() {
       <p class="mb-3 opacity-80">{t("Export all data intro")}</p>
       <form ref={formRef} class="space-y-3" data-writable>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <label class="form-control"><div class="label"><span class="label-text">{t("Include database file")}</span></div>
-            <select name="includeDb" class="select select-bordered w-full" data-writable><option value="true">{t("Yes")}</option><option value="false">{t("No")}</option></select>
+          <label class="form-control">
+            <div class="label">
+              <span class="label-text">{t("Include database file")}</span>
+            </div>
+            <select
+              name="includeDb"
+              class="select select-bordered w-full"
+              data-writable
+            >
+              <option value="true">{t("Yes")}</option>
+              <option value="false">{t("No")}</option>
+            </select>
           </label>
-          <label class="form-control"><div class="label"><span class="label-text">{t("Include JSON dump")}</span></div>
-            <select name="includeJson" class="select select-bordered w-full" data-writable><option value="true">{t("Yes")}</option><option value="false">{t("No")}</option></select>
+          <label class="form-control">
+            <div class="label">
+              <span class="label-text">{t("Include JSON dump")}</span>
+            </div>
+            <select
+              name="includeJson"
+              class="select select-bordered w-full"
+              data-writable
+            >
+              <option value="true">{t("Yes")}</option>
+              <option value="false">{t("No")}</option>
+            </select>
           </label>
-          <label class="form-control"><div class="label"><span class="label-text">{t("Include template assets")}</span></div>
-            <select name="includeAssets" class="select select-bordered w-full" data-writable><option value="true">{t("Yes")}</option><option value="false">{t("No")}</option></select>
+          <label class="form-control">
+            <div class="label">
+              <span class="label-text">{t("Include template assets")}</span>
+            </div>
+            <select
+              name="includeAssets"
+              class="select select-bordered w-full"
+              data-writable
+            >
+              <option value="true">{t("Yes")}</option>
+              <option value="false">{t("No")}</option>
+            </select>
           </label>
         </div>
         <div class="divider" />
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label class="form-control"><div class="label"><span class="label-text">{t("Re-enter admin username")}</span></div>
-            <input name="username" class="input input-bordered" placeholder={t("Admin username placeholder")} required data-writable />
+          <label class="form-control">
+            <div class="label">
+              <span class="label-text">{t("Re-enter admin username")}</span>
+            </div>
+            <input
+              name="username"
+              class="input input-bordered"
+              placeholder={t("Admin username placeholder")}
+              required
+              data-writable
+            />
           </label>
-          <label class="form-control"><div class="label"><span class="label-text">{t("Re-enter admin password")}</span></div>
-            <input name="password" type="password" class="input input-bordered" placeholder={t("Admin password placeholder")} required data-writable />
+          <label class="form-control">
+            <div class="label">
+              <span class="label-text">{t("Re-enter admin password")}</span>
+            </div>
+            <input
+              name="password"
+              type="password"
+              class="input input-bordered"
+              placeholder={t("Admin password placeholder")}
+              required
+              data-writable
+            />
           </label>
         </div>
         <div class="pt-2 flex items-center gap-3">
-          <button type="button" onClick={onExportClick} disabled={busy} class="btn btn-primary" data-writable>{busy ? t("Exporting...") : t("Export all data")}</button>
+          <button
+            type="button"
+            onClick={onExportClick}
+            disabled={busy}
+            class="btn btn-primary"
+            data-writable
+          >
+            {busy ? t("Exporting...") : t("Export all data")}
+          </button>
           <span class="text-sm opacity-70">{status}</span>
         </div>
       </form>

@@ -3,7 +3,6 @@ import nlMessages from "./locales/nl.json" with { type: "json" };
 import deMessages from "./locales/de.json" with { type: "json" };
 import ptMessages from "./locales/pt-br.json" with { type: "json" };
 
-
 export type UiMessages = Record<string, string>;
 export type TranslateParams = Record<string, string | number>;
 

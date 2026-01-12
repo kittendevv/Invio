@@ -1,9 +1,11 @@
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../../components/Layout.tsx";
 import { LuPlus } from "../../components/icons.tsx";
 import { formatMoney, getNumberFormat } from "../../utils/format.ts";
 import { backendGet, getAuthHeaderFromCookie } from "../../utils/backend.ts";
+import { renderPage } from "../../utils/render.tsx";
 import { useTranslations } from "../../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
 type Invoice = {
   id: string;
@@ -26,7 +28,8 @@ type Data = {
 };
 
 export const handler: Handlers<Data> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -42,7 +45,9 @@ export const handler: Handlers<Data> = {
       const status = (url.searchParams.get("status") || "").trim();
       const [invoicesAll, settings] = await Promise.all([
         backendGet("/api/v1/invoices", auth) as Promise<Invoice[]>,
-        backendGet("/api/v1/settings", auth).catch(() => ({})) as Promise<Record<string, unknown>>,
+        backendGet("/api/v1/settings", auth).catch(() => ({})) as Promise<
+          Record<string, unknown>
+        >,
       ]);
       // Normalize for case/diacritics-insensitive search
       const norm = (s: unknown) =>
@@ -64,7 +69,7 @@ export const handler: Handlers<Data> = {
         return okStatus && okText;
       });
       const dateFormat = String(settings.dateFormat || "YYYY-MM-DD");
-      return ctx.render({
+      return renderPage(ctx, Invoices, {
         authed: true,
         invoices,
         q,
@@ -74,7 +79,7 @@ export const handler: Handlers<Data> = {
         settings,
       });
     } catch (e) {
-      return ctx.render({ authed: true, error: String(e) });
+      return renderPage(ctx, Invoices, { authed: true, error: String(e) });
     }
   },
 };
@@ -93,8 +98,8 @@ export default function Invoices(props: PageProps<Data>) {
       const d = new Date(s);
       if (isNaN(d.getTime())) return s;
       const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
       if (dateFormat === "DD.MM.YYYY") {
         return `${day}.${month}.${year}`;
       }
@@ -115,7 +120,17 @@ export default function Invoices(props: PageProps<Data>) {
       : st === "sent"
       ? "badge-info"
       : "";
-    const label = st ? t(st === "paid" ? "Paid" : st === "overdue" ? "Overdue" : st === "sent" ? "Sent" : "Draft") : "";
+    const label = st
+      ? t(
+        st === "paid"
+          ? "Paid"
+          : st === "overdue"
+          ? "Overdue"
+          : st === "sent"
+          ? "Sent"
+          : "Draft",
+      )
+      : "";
     return <span class={`badge ${cls}`}>{label}</span>;
   };
   const qsFor = (s: string) => {
@@ -129,7 +144,8 @@ export default function Invoices(props: PageProps<Data>) {
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <h1 class="text-2xl font-semibold">{t("Invoices")}</h1>
         <a href="/invoices/new" class="btn btn-sm btn-primary w-full sm:w-auto">
-          <LuPlus size={16} />{t("New Invoice")}
+          <LuPlus size={16} />
+          {t("New Invoice")}
         </a>
       </div>
       {props.data.error && (
@@ -138,7 +154,10 @@ export default function Invoices(props: PageProps<Data>) {
         </div>
       )}
       <div class="mb-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <form method="get" class="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto">
+        <form
+          method="get"
+          class="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto"
+        >
           <label class="form-control w-full sm:w-64">
             <div class="label py-0">
               <span class="label-text text-xs">{t("Search")}</span>
@@ -153,9 +172,16 @@ export default function Invoices(props: PageProps<Data>) {
           {/* preserve current status chosen via tags */}
           <input type="hidden" name="status" value={status} />
           <div class="flex gap-2">
-            <button type="submit" class="btn btn-sm flex-1 sm:flex-none">{t("Apply")}</button>
+            <button type="submit" class="btn btn-sm flex-1 sm:flex-none">
+              {t("Apply")}
+            </button>
             {(q || status) && (
-              <a href="/invoices" class="btn btn-ghost btn-sm flex-1 sm:flex-none">{t("Clear")}</a>
+              <a
+                href="/invoices"
+                class="btn btn-ghost btn-sm flex-1 sm:flex-none"
+              >
+                {t("Clear")}
+              </a>
             )}
           </div>
         </form>
@@ -179,13 +205,19 @@ export default function Invoices(props: PageProps<Data>) {
         </div>
       </div>
       <div class="mb-3 text-xs opacity-70">
-        {t("Invoices list summary", { visible: String(list.length), total: String(totalCount) })}
+        {t("Invoices list summary", {
+          visible: String(list.length),
+          total: String(totalCount),
+        })}
       </div>
-      
+
       {/* Mobile Card View */}
       <div class="block lg:hidden space-y-3">
         {list.map((inv) => (
-          <a href={`/invoices/${inv.id}`} class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow">
+          <a
+            href={`/invoices/${inv.id}`}
+            class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
+          >
             <div class="card-body p-4">
               <div class="flex justify-between items-start mb-2">
                 <div class="flex-1">
@@ -198,7 +230,9 @@ export default function Invoices(props: PageProps<Data>) {
               </div>
               <div class="flex justify-between items-center text-sm pt-2 border-t border-base-300">
                 <div class="opacity-70">{fmtDate(inv.issue_date)}</div>
-                <div class="font-medium font-mono tabular-nums">{formatInvoiceMoney(inv)}</div>
+                <div class="font-medium font-mono tabular-nums">
+                  {formatInvoiceMoney(inv)}
+                </div>
               </div>
             </div>
           </a>
@@ -262,7 +296,9 @@ export default function Invoices(props: PageProps<Data>) {
                     ? (
                       <span>
                         {t("No invoices match your filters.")}{" "}
-                        <a href="/invoices" class="link">{t("Clear filters")}</a>
+                        <a href="/invoices" class="link">
+                          {t("Clear filters")}
+                        </a>
                       </span>
                     )
                     : (

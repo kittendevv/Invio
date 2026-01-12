@@ -1,8 +1,13 @@
-import { Handlers } from "$fresh/server.ts";
-import { buildTaxDefinitionPayload, proxyToBackend, resolveAuth } from "./_shared.ts";
+import {
+  buildTaxDefinitionPayload,
+  proxyToBackend,
+  resolveAuth,
+} from "./_shared.ts";
+import { Handlers } from "fresh/compat";
 
 export const handler: Handlers = {
-  async GET(req) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = resolveAuth(req);
     if (!auth) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -17,7 +22,8 @@ export const handler: Handlers = {
     });
   },
 
-  async POST(req) {
+  async POST(ctx) {
+    const req = ctx.req;
     const auth = resolveAuth(req);
     if (!auth) {
       return new Response("Unauthorized", { status: 401 });

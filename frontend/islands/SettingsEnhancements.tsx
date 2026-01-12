@@ -5,37 +5,49 @@ export default function SettingsEnhancements() {
   const { t } = useTranslations();
   useEffect(() => {
     // Highlight color sync
-    const input = document.getElementById('highlight-input') as HTMLInputElement | null;
-    const swatch = document.getElementById('highlight-swatch') as HTMLElement | null;
+    const input = document.getElementById("highlight-input") as
+      | HTMLInputElement
+      | null;
+    const swatch = document.getElementById("highlight-swatch") as
+      | HTMLElement
+      | null;
     const applyColor = (val: string) => {
       if (!val || !swatch) return;
       swatch.style.background = val;
     };
     const onInput = () => {
       if (!input) return;
-      const val = input.value || '';
+      const val = input.value || "";
       if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(val)) applyColor(val);
     };
-    input?.addEventListener('input', onInput);
+    input?.addEventListener("input", onInput);
 
     // Logo URL validation
-    const logoInput = document.getElementById('logo-input') as HTMLInputElement | null;
-    const logoErr = document.getElementById('logo-error') as HTMLElement | null;
-    const logoPreview = document.getElementById('logo-preview') as HTMLElement | null;
-    const logoPreviewImg = document.getElementById('logo-preview-img') as HTMLImageElement | null;
-    const logoFileInput = document.getElementById('logo-file') as HTMLInputElement | null;
+    const logoInput = document.getElementById("logo-input") as
+      | HTMLInputElement
+      | null;
+    const logoErr = document.getElementById("logo-error") as HTMLElement | null;
+    const logoPreview = document.getElementById("logo-preview") as
+      | HTMLElement
+      | null;
+    const logoPreviewImg = document.getElementById("logo-preview-img") as
+      | HTMLImageElement
+      | null;
+    const logoFileInput = document.getElementById("logo-file") as
+      | HTMLInputElement
+      | null;
 
     // Color extraction functions
     const extractColorsFromImage = (img: HTMLImageElement, src?: string) => {
       // Check if this is an SVG
-      if (src && (src.includes('data:image/svg') || src.includes('.svg'))) {
+      if (src && (src.includes("data:image/svg") || src.includes(".svg"))) {
         extractColorsFromSVG(src);
         return;
       }
 
       // Handle raster images (PNG, JPG, etc.)
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
       canvas.width = Math.min(img.naturalWidth, 200);
@@ -51,9 +63,9 @@ export default function SettingsEnhancements() {
       try {
         let svgContent: string;
 
-        if (src.startsWith('data:image/svg')) {
+        if (src.startsWith("data:image/svg")) {
           // Extract SVG content from data URL
-          const base64Content = src.split(',')[1];
+          const base64Content = src.split(",")[1];
           svgContent = atob(base64Content);
         } else {
           // Fetch SVG from URL
@@ -64,10 +76,10 @@ export default function SettingsEnhancements() {
         const colors = parseSVGColors(svgContent);
         displayColorSuggestions(colors);
       } catch (error) {
-        console.warn('Failed to extract colors from SVG:', error);
+        console.warn("Failed to extract colors from SVG:", error);
         // Fallback to canvas method if SVG parsing fails
         const img = new Image();
-        img.onload = () => extractColorsFromImage(img, '');
+        img.onload = () => extractColorsFromImage(img, "");
         img.src = src;
       }
     };
@@ -84,7 +96,7 @@ export default function SettingsEnhancements() {
         /stop-color="([^"]+)"/g,
       ];
 
-      colorPatterns.forEach(pattern => {
+      colorPatterns.forEach((pattern) => {
         let match;
         while ((match = pattern.exec(svgContent)) !== null) {
           const color = match[1].trim();
@@ -101,7 +113,18 @@ export default function SettingsEnhancements() {
       // Check for hex colors
       if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) return true;
       // Check for named colors (basic check)
-      const namedColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'black', 'white', 'gray'];
+      const namedColors = [
+        "red",
+        "blue",
+        "green",
+        "yellow",
+        "purple",
+        "orange",
+        "pink",
+        "black",
+        "white",
+        "gray",
+      ];
       if (namedColors.includes(color.toLowerCase())) return true;
       // Check for rgb/rgba
       if (/^rgb(a)?\(/.test(color)) return true;
@@ -111,23 +134,23 @@ export default function SettingsEnhancements() {
     const normalizeColor = (color: string): string => {
       // Convert named colors to hex (basic mapping)
       const colorMap: { [key: string]: string } = {
-        'red': '#ff0000',
-        'blue': '#0000ff',
-        'green': '#008000',
-        'yellow': '#ffff00',
-        'purple': '#800080',
-        'orange': '#ffa500',
-        'pink': '#ffc0cb',
-        'black': '#000000',
-        'white': '#ffffff',
-        'gray': '#808080',
+        "red": "#ff0000",
+        "blue": "#0000ff",
+        "green": "#008000",
+        "yellow": "#ffff00",
+        "purple": "#800080",
+        "orange": "#ffa500",
+        "pink": "#ffc0cb",
+        "black": "#000000",
+        "white": "#ffffff",
+        "gray": "#808080",
       };
 
       const lowerColor = color.toLowerCase();
       if (colorMap[lowerColor]) return colorMap[lowerColor];
 
       // If it's already a hex color, return as-is
-      if (color.startsWith('#')) return color;
+      if (color.startsWith("#")) return color;
 
       // For rgb/rgba, convert to hex (simplified)
       const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
@@ -141,10 +164,13 @@ export default function SettingsEnhancements() {
       return color;
     };
 
-    const extractDominantColors = (data: Uint8ClampedArray, numColors: number): string[] => {
+    const extractDominantColors = (
+      data: Uint8ClampedArray,
+      numColors: number,
+    ): string[] => {
       // Collect all non-transparent pixels
       const pixels: [number, number, number][] = [];
-      
+
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
@@ -164,24 +190,29 @@ export default function SettingsEnhancements() {
       if (pixels.length === 0) return [];
 
       // Use k-means clustering to find dominant colors
-      const clusters = kMeansClustering(pixels, Math.min(numColors, pixels.length));
-      
+      const clusters = kMeansClustering(
+        pixels,
+        Math.min(numColors, pixels.length),
+      );
+
       // Convert to hex and return
-      return clusters.map(([r, g, b]) => rgbToHex(
-        Math.round(r),
-        Math.round(g),
-        Math.round(b)
-      ));
+      return clusters.map(([r, g, b]) =>
+        rgbToHex(
+          Math.round(r),
+          Math.round(g),
+          Math.round(b),
+        )
+      );
     };
 
     const kMeansClustering = (
       pixels: [number, number, number][],
-      k: number
+      k: number,
     ): [number, number, number][] => {
       // Initialize centroids by selecting k random pixels
       const centroids: [number, number, number][] = [];
       const usedIndices = new Set<number>();
-      
+
       while (centroids.length < k && centroids.length < pixels.length) {
         const idx = Math.floor(Math.random() * pixels.length);
         if (!usedIndices.has(idx)) {
@@ -193,12 +224,14 @@ export default function SettingsEnhancements() {
       // Run k-means iterations
       for (let iteration = 0; iteration < 10; iteration++) {
         // Assign each pixel to nearest centroid
-        const clusters: [number, number, number][][] = Array(k).fill(null).map(() => []);
-        
+        const clusters: [number, number, number][][] = Array(k).fill(null).map(
+          () => [],
+        );
+
         for (const pixel of pixels) {
           let minDist = Infinity;
           let closestCluster = 0;
-          
+
           for (let i = 0; i < centroids.length; i++) {
             const dist = colorDistance(pixel, centroids[i]);
             if (dist < minDist) {
@@ -206,7 +239,7 @@ export default function SettingsEnhancements() {
               closestCluster = i;
             }
           }
-          
+
           clusters[closestCluster].push(pixel);
         }
 
@@ -214,21 +247,21 @@ export default function SettingsEnhancements() {
         let changed = false;
         for (let i = 0; i < centroids.length; i++) {
           if (clusters[i].length === 0) continue;
-          
+
           const sumR = clusters[i].reduce((sum, p) => sum + p[0], 0);
           const sumG = clusters[i].reduce((sum, p) => sum + p[1], 0);
           const sumB = clusters[i].reduce((sum, p) => sum + p[2], 0);
-          
+
           const newCentroid: [number, number, number] = [
             sumR / clusters[i].length,
             sumG / clusters[i].length,
             sumB / clusters[i].length,
           ];
-          
+
           if (colorDistance(centroids[i], newCentroid) > 1) {
             changed = true;
           }
-          
+
           centroids[i] = newCentroid;
         }
 
@@ -238,7 +271,7 @@ export default function SettingsEnhancements() {
 
       // Sort by cluster size (most common colors first)
       const clusterSizes = centroids.map((centroid, i) => {
-        const size = pixels.filter(pixel => {
+        const size = pixels.filter((pixel) => {
           let minDist = Infinity;
           let closest = -1;
           for (let j = 0; j < centroids.length; j++) {
@@ -255,12 +288,12 @@ export default function SettingsEnhancements() {
 
       return clusterSizes
         .sort((a, b) => b.size - a.size)
-        .map(item => item.centroid);
+        .map((item) => item.centroid);
     };
 
     const colorDistance = (
       c1: [number, number, number],
-      c2: [number, number, number]
+      c2: [number, number, number],
     ): number => {
       // Euclidean distance in RGB space
       const dr = c1[0] - c2[0];
@@ -274,21 +307,26 @@ export default function SettingsEnhancements() {
     };
 
     const displayColorSuggestions = (colors: string[]) => {
-      const container = document.getElementById('color-suggestions');
+      const container = document.getElementById("color-suggestions");
       if (!container) return;
 
-      container.classList.remove('hidden');
-      const swatchesContainer = container.querySelector('div:last-child') as HTMLElement;
+      container.classList.remove("hidden");
+      const swatchesContainer = container.querySelector(
+        "div:last-child",
+      ) as HTMLElement;
       if (!swatchesContainer) return;
 
-      swatchesContainer.innerHTML = '';
+      swatchesContainer.innerHTML = "";
 
-      colors.forEach(color => {
-        const swatch = document.createElement('button');
-        swatch.className = 'w-8 h-8 rounded border-2 border-base-300 hover:border-base-content transition-colors';
+      colors.forEach((color) => {
+        const swatch = document.createElement("button");
+        swatch.className =
+          "w-8 h-8 rounded border-2 border-base-300 hover:border-base-content transition-colors";
         swatch.style.backgroundColor = color;
-  swatch.title = t("Click to set highlight color to {{color}}", { color });
-        swatch.addEventListener('click', () => {
+        swatch.title = t("Click to set highlight color to {{color}}", {
+          color,
+        });
+        swatch.addEventListener("click", () => {
           if (input) {
             input.value = color;
             applyColor(color);
@@ -299,43 +337,51 @@ export default function SettingsEnhancements() {
     };
 
     const hideColorSuggestions = () => {
-      const container = document.getElementById('color-suggestions');
+      const container = document.getElementById("color-suggestions");
       if (container) {
-        container.classList.add('hidden');
-        container.innerHTML = '';
+        container.classList.add("hidden");
+        container.innerHTML = "";
       }
     };
 
     const isValidLogo = (v: string) => {
       if (!v) return true; // Empty is valid
-      if (v.startsWith('data:image/')) return true;
-      try { const u = new URL(v); return u.protocol === 'http:' || u.protocol === 'https:'; } catch { return false; }
+      if (v.startsWith("data:image/")) return true;
+      try {
+        const u = new URL(v);
+        return u.protocol === "http:" || u.protocol === "https:";
+      } catch {
+        return false;
+      }
     };
 
     const updateLogoPreview = (src: string) => {
       if (logoPreview && logoPreviewImg && src) {
         logoPreviewImg.src = src;
-        logoPreview.classList.remove('hidden');
+        logoPreview.classList.remove("hidden");
         // Extract colors when image loads
-        logoPreviewImg.onload = () => extractColorsFromImage(logoPreviewImg, src);
+        logoPreviewImg.onload = () =>
+          extractColorsFromImage(logoPreviewImg, src);
       } else if (logoPreview) {
-        logoPreview.classList.add('hidden');
+        logoPreview.classList.add("hidden");
         hideColorSuggestions();
       }
     };
 
     const updateLogo = () => {
-      const v = (logoInput && logoInput.value) ? logoInput.value.trim() : '';
+      const v = (logoInput && logoInput.value) ? logoInput.value.trim() : "";
       if (!isValidLogo(v)) {
-        logoErr && logoErr.classList.remove('hidden');
-        updateLogoPreview('');
+        logoErr && logoErr.classList.remove("hidden");
+        updateLogoPreview("");
         return;
       }
-      logoErr && logoErr.classList.add('hidden');
+      logoErr && logoErr.classList.add("hidden");
       updateLogoPreview(v);
     };
 
-    const onLogoTyping = () => { logoErr && logoErr.classList.add('hidden'); };
+    const onLogoTyping = () => {
+      logoErr && logoErr.classList.add("hidden");
+    };
 
     // Handle file upload
     const onFileChange = (event: Event) => {
@@ -344,7 +390,7 @@ export default function SettingsEnhancements() {
       if (!file) return;
 
       // Validate file type
-      if (!file.type.startsWith('image/')) {
+      if (!file.type.startsWith("image/")) {
         alert(t("Please select a valid image file."));
         return;
       }
@@ -367,17 +413,17 @@ export default function SettingsEnhancements() {
       reader.readAsDataURL(file);
     };
 
-    logoInput?.addEventListener('change', updateLogo);
-    logoInput?.addEventListener('input', onLogoTyping);
-    logoFileInput?.addEventListener('change', onFileChange);
+    logoInput?.addEventListener("change", updateLogo);
+    logoInput?.addEventListener("input", onLogoTyping);
+    logoFileInput?.addEventListener("change", onFileChange);
 
     if (logoInput?.value) updateLogo();
 
     return () => {
-      input?.removeEventListener('input', onInput);
-      logoInput?.removeEventListener('change', updateLogo);
-      logoInput?.removeEventListener('input', onLogoTyping);
-      logoFileInput?.removeEventListener('change', onFileChange);
+      input?.removeEventListener("input", onInput);
+      logoInput?.removeEventListener("change", updateLogo);
+      logoInput?.removeEventListener("input", onLogoTyping);
+      logoFileInput?.removeEventListener("change", onFileChange);
     };
   }, [t]);
   return null;

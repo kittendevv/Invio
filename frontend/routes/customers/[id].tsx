@@ -1,4 +1,4 @@
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../../components/Layout.tsx";
 import { LuPencil, LuTrash2 } from "../../components/icons.tsx";
 import ConfirmOnSubmit from "../../islands/ConfirmOnSubmit.tsx";
@@ -7,13 +7,24 @@ import {
   backendGet,
   getAuthHeaderFromCookie,
 } from "../../utils/backend.ts";
+import { renderPage } from "../../utils/render.tsx";
 import { useTranslations } from "../../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
-type Customer = { id: string; name?: string; contactName?: string; email?: string; address?: string; city?: string; postalCode?: string };
+type Customer = {
+  id: string;
+  name?: string;
+  contactName?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+};
 type Data = { authed: boolean; customer?: Customer; error?: string };
 
 export const handler: Handlers<Data> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -29,12 +40,13 @@ export const handler: Handlers<Data> = {
         `/api/v1/customers/${id}`,
         auth,
       ) as Customer;
-      return ctx.render({ authed: true, customer });
+      return renderPage(ctx, CustomerDetail, { authed: true, customer });
     } catch (e) {
-      return ctx.render({ authed: true, error: String(e) });
+      return renderPage(ctx, CustomerDetail, { authed: true, error: String(e) });
     }
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -73,7 +85,9 @@ export default function CustomerDetail(props: PageProps<Data>) {
     <Layout authed={props.data.authed} path={new URL(props.url).pathname}>
       <ConfirmOnSubmit />
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-semibold">{t("Customer")} {c?.name || c?.id}</h1>
+        <h1 class="text-2xl font-semibold">
+          {t("Customer")} {c?.name || c?.id}
+        </h1>
         {c && (
           <div class="flex gap-2">
             <a href={`/customers/${c.id}/edit`} class="btn btn-sm">
@@ -102,7 +116,8 @@ export default function CustomerDetail(props: PageProps<Data>) {
         <div class="space-y-2">
           {c.contactName && (
             <div>
-              <span class="opacity-70">{t("Contact Name")}:</span> {c.contactName}
+              <span class="opacity-70">{t("Contact Name")}:</span>{" "}
+              {c.contactName}
             </div>
           )}
           {c.email && (
@@ -117,7 +132,9 @@ export default function CustomerDetail(props: PageProps<Data>) {
           )}
           {(c.city || c.postalCode) && (
             <div>
-              <span class="opacity-70">{t("City")}/{t("Postal Code")}:</span> {c.city || ""} {c.postalCode ? `(${c.postalCode})` : ""}
+              <span class="opacity-70">{t("City")}/{t("Postal Code")}:</span>
+              {" "}
+              {c.city || ""} {c.postalCode ? `(${c.postalCode})` : ""}
             </div>
           )}
         </div>

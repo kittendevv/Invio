@@ -1,8 +1,9 @@
-import { Handlers } from "$fresh/server.ts";
 import { getAuthHeaderFromCookie } from "../../utils/backend.ts";
+import { Handlers } from "fresh/compat";
 
 export const handler: Handlers = {
-  GET(req) {
+  GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -17,7 +18,8 @@ export const handler: Handlers = {
       headers: { Location: "/settings" },
     });
   },
-  POST(req) {
+  POST(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );

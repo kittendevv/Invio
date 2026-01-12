@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import { LuPlus, LuPencil, LuTrash2 } from "../components/icons.tsx";
+import { LuPencil, LuPlus, LuTrash2 } from "../components/icons.tsx";
 
 type TaxDefinition = {
   id: string;
@@ -66,7 +66,9 @@ export default function TaxDefinitionsManager(props: Props) {
       {showForm && (
         <form
           method="post"
-          action={editingId ? `/api/v1/tax-definitions/${editingId}` : "/api/v1/tax-definitions"}
+          action={editingId
+            ? `/api/v1/tax-definitions/${editingId}`
+            : "/api/v1/tax-definitions"}
           class="card bg-base-200 p-4 space-y-3"
         >
           {editingId && <input type="hidden" name="_method" value="PUT" />}
@@ -157,7 +159,11 @@ export default function TaxDefinitionsManager(props: Props) {
           </div>
 
           <div class="flex gap-2">
-            <button type="submit" class="btn btn-primary" disabled={props.demoMode}>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              disabled={props.demoMode}
+            >
               {editingId ? "Update" : "Create"}
             </button>
             <button type="button" onClick={handleCancel} class="btn btn-ghost">
@@ -202,7 +208,9 @@ export default function TaxDefinitionsManager(props: Props) {
                   method="post"
                   action={`/api/v1/tax-definitions/${tax.id}`}
                   onSubmit={(e) => {
-                    if (!confirm(`Delete ${tax.code}? This cannot be undone.`)) {
+                    if (
+                      !confirm(`Delete ${tax.code}? This cannot be undone.`)
+                    ) {
                       e.preventDefault();
                     }
                   }}

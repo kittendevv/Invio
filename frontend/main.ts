@@ -1,4 +1,5 @@
-import { start } from "$fresh/server.ts";
-import manifest from "./fresh.gen.ts";
+import { App, staticFiles } from "jsr:@fresh/core@^2.2.0";
 
-await start(manifest);
+export const app = new App({ root: import.meta.url })
+	.use(staticFiles())
+	.fsRoutes();

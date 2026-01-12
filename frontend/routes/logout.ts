@@ -1,5 +1,5 @@
-import { Handlers } from "$fresh/server.ts";
 import { clearAuthCookieHeaders } from "../utils/backend.ts";
+import { Handlers } from "fresh/compat";
 
 export const handler: Handlers = {
   GET() {

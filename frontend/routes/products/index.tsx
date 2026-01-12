@@ -1,9 +1,11 @@
 /** Products list page with search, status filter, and category filter */
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../../components/Layout.tsx";
 import { LuPackagePlus } from "../../components/icons.tsx";
 import { backendGet, getAuthHeaderFromCookie } from "../../utils/backend.ts";
+import { renderPage } from "../../utils/render.tsx";
 import { useTranslations } from "../../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
 type Product = {
   id: string;
@@ -29,7 +31,8 @@ type Data = {
 };
 
 export const handler: Handlers<Data> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -46,9 +49,15 @@ export const handler: Handlers<Data> = {
       const category = (url.searchParams.get("category") || "").trim();
 
       const [productsAll, categoriesAll, settings] = await Promise.all([
-        backendGet("/api/v1/products?includeInactive=true", auth) as Promise<Product[]>,
-        backendGet("/api/v1/product-categories", auth) as Promise<ProductCategory[]>,
-        backendGet("/api/v1/settings", auth) as Promise<Record<string, unknown>>,
+        backendGet("/api/v1/products?includeInactive=true", auth) as Promise<
+          Product[]
+        >,
+        backendGet("/api/v1/product-categories", auth) as Promise<
+          ProductCategory[]
+        >,
+        backendGet("/api/v1/settings", auth) as Promise<
+          Record<string, unknown>
+        >,
       ]);
 
       // Normalize for case/diacritics-insensitive search
@@ -76,12 +85,13 @@ export const handler: Handlers<Data> = {
         const name = norm(p.name);
         const sku = norm(p.sku);
         const desc = norm(p.description);
-        const okText = name.includes(qLower) || sku.includes(qLower) || desc.includes(qLower);
+        const okText = name.includes(qLower) || sku.includes(qLower) ||
+          desc.includes(qLower);
 
         return okStatus && okCategory && okText;
       });
 
-      return ctx.render({
+      return renderPage(ctx, Products, {
         authed: true,
         products,
         categories: categoriesAll,
@@ -92,7 +102,7 @@ export const handler: Handlers<Data> = {
         totalCount: productsAll.length,
       });
     } catch (e) {
-      return ctx.render({ authed: true, error: String(e) });
+      return renderPage(ctx, Products, { authed: true, error: String(e) });
     }
   },
 };
@@ -145,7 +155,8 @@ export default function Products(props: PageProps<Data>) {
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <h1 class="text-2xl font-semibold">{t("Products")}</h1>
         <a href="/products/new" class="btn btn-sm btn-primary w-full sm:w-auto">
-          <LuPackagePlus size={16} />{t("New Product")}
+          <LuPackagePlus size={16} />
+          {t("New Product")}
         </a>
       </div>
       {props.data.error && (
@@ -156,7 +167,10 @@ export default function Products(props: PageProps<Data>) {
 
       {/* Search and Filter */}
       <div class="mb-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <form method="get" class="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto">
+        <form
+          method="get"
+          class="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto"
+        >
           <label class="form-control w-full sm:w-64">
             <div class="label py-0">
               <span class="label-text text-xs">{t("Search")}</span>
@@ -172,9 +186,16 @@ export default function Products(props: PageProps<Data>) {
           <input type="hidden" name="status" value={status} />
           <input type="hidden" name="category" value={category} />
           <div class="flex gap-2">
-            <button type="submit" class="btn btn-sm flex-1 sm:flex-none">{t("Apply")}</button>
+            <button type="submit" class="btn btn-sm flex-1 sm:flex-none">
+              {t("Apply")}
+            </button>
             {hasFilters && (
-              <a href="/products" class="btn btn-ghost btn-sm flex-1 sm:flex-none">{t("Clear")}</a>
+              <a
+                href="/products"
+                class="btn btn-ghost btn-sm flex-1 sm:flex-none"
+              >
+                {t("Clear")}
+              </a>
             )}
           </div>
         </form>
@@ -204,21 +225,27 @@ export default function Products(props: PageProps<Data>) {
             }}
           >
             <option value="">{t("All Categories")}</option>
-            {categories.map((c) => (
-              <option value={c.code}>{c.name}</option>
-            ))}
+            {categories.map((c) => <option value={c.code}>{c.name}</option>)}
           </select>
         </div>
       </div>
 
       <div class="mb-3 text-xs opacity-70">
-        {t("Products list summary", { visible: String(list.length), total: String(totalCount) })}
+        {t("Products list summary", {
+          visible: String(list.length),
+          total: String(totalCount),
+        })}
       </div>
 
       {/* Mobile Card View */}
       <div class="block md:hidden space-y-3">
         {list.map((p) => (
-          <a href={`/products/${p.id}`} class={`card bg-base-100 border border-base-300 hover:shadow-md transition-shadow ${!p.isActive ? "opacity-60" : ""}`}>
+          <a
+            href={`/products/${p.id}`}
+            class={`card bg-base-100 border border-base-300 hover:shadow-md transition-shadow ${
+              !p.isActive ? "opacity-60" : ""
+            }`}
+          >
             <div class="card-body p-4">
               <div class="flex justify-between items-start">
                 <div>
@@ -226,29 +253,43 @@ export default function Products(props: PageProps<Data>) {
                   {p.sku && <div class="text-xs opacity-50">{p.sku}</div>}
                 </div>
                 <div class="text-right">
-                  <div class="font-mono">{formatCurrency(p.unitPrice, currency)}</div>
-                  {!p.isActive && <span class="badge badge-ghost badge-sm">{t("Inactive")}</span>}
+                  <div class="font-mono">
+                    {formatCurrency(p.unitPrice, currency)}
+                  </div>
+                  {!p.isActive && (
+                    <span class="badge badge-ghost badge-sm">
+                      {t("Inactive")}
+                    </span>
+                  )}
                 </div>
               </div>
-              {p.description && <div class="text-sm opacity-70 mt-1 line-clamp-2">{p.description}</div>}
+              {p.description && (
+                <div class="text-sm opacity-70 mt-1 line-clamp-2">
+                  {p.description}
+                </div>
+              )}
             </div>
           </a>
         ))}
         {list.length === 0 && (
           <div class="card bg-base-100 border border-base-300">
             <div class="card-body text-center py-10 text-sm opacity-70">
-              {hasFilters ? (
-                <span>
-                  {t("No products match your filters.")}{" "}
-                  <a href="/products" class="link">{t("Clear filters")}</a>
-                </span>
-              ) : (
-                <span>
-                  {t("No products yet.")}{" "}
-                  <a href="/products/new" class="link">{t("Create your first product")}</a>
-                  {"."}
-                </span>
-              )}
+              {hasFilters
+                ? (
+                  <span>
+                    {t("No products match your filters.")}{" "}
+                    <a href="/products" class="link">{t("Clear filters")}</a>
+                  </span>
+                )
+                : (
+                  <span>
+                    {t("No products yet.")}{" "}
+                    <a href="/products/new" class="link">
+                      {t("Create your first product")}
+                    </a>
+                    {"."}
+                  </span>
+                )}
             </div>
           </div>
         )}
@@ -276,33 +317,47 @@ export default function Products(props: PageProps<Data>) {
                   </a>
                 </td>
                 <td class="opacity-70 font-mono text-xs">{p.sku || "-"}</td>
-                <td class="font-mono">{formatCurrency(p.unitPrice, currency)}</td>
+                <td class="font-mono">
+                  {formatCurrency(p.unitPrice, currency)}
+                </td>
                 <td class="opacity-70">{p.unit || "-"}</td>
                 <td class="opacity-70">{p.category || "-"}</td>
                 <td>
-                  {p.isActive ? (
-                    <span class="badge badge-success badge-sm">{t("Active")}</span>
-                  ) : (
-                    <span class="badge badge-ghost badge-sm">{t("Inactive")}</span>
-                  )}
+                  {p.isActive
+                    ? (
+                      <span class="badge badge-success badge-sm">
+                        {t("Active")}
+                      </span>
+                    )
+                    : (
+                      <span class="badge badge-ghost badge-sm">
+                        {t("Inactive")}
+                      </span>
+                    )}
                 </td>
               </tr>
             ))}
             {list.length === 0 && (
               <tr>
                 <td colSpan={6} class="text-center py-10 text-sm opacity-70">
-                  {hasFilters ? (
-                    <span>
-                      {t("No products match your filters.")}{" "}
-                      <a href="/products" class="link">{t("Clear filters")}</a>
-                    </span>
-                  ) : (
-                    <span>
-                      {t("No products yet.")}{" "}
-                      <a href="/products/new" class="link">{t("Create your first product")}</a>
-                      {"."}
-                    </span>
-                  )}
+                  {hasFilters
+                    ? (
+                      <span>
+                        {t("No products match your filters.")}{" "}
+                        <a href="/products" class="link">
+                          {t("Clear filters")}
+                        </a>
+                      </span>
+                    )
+                    : (
+                      <span>
+                        {t("No products yet.")}{" "}
+                        <a href="/products/new" class="link">
+                          {t("Create your first product")}
+                        </a>
+                        {"."}
+                      </span>
+                    )}
                 </td>
               </tr>
             )}

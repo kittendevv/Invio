@@ -1,11 +1,12 @@
-import { Handlers } from "$fresh/server.ts";
 import {
   BACKEND_URL,
   getAuthHeaderFromCookie,
 } from "../../../utils/backend.ts";
+import { Handlers } from "fresh/compat";
 
 export const handler: Handlers = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );

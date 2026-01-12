@@ -1,4 +1,4 @@
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../../../components/Layout.tsx";
 import { InvoiceEditor } from "../../../components/InvoiceEditor.tsx";
 import InvoiceFormButton from "../../../islands/InvoiceFormButton.tsx";
@@ -7,7 +7,9 @@ import {
   backendPut,
   getAuthHeaderFromCookie,
 } from "../../../utils/backend.ts";
+import { renderPage } from "../../../utils/render.tsx";
 import { useTranslations } from "../../../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
 type Item = {
   description: string;
@@ -57,7 +59,8 @@ type Data = {
 };
 
 export const handler: Handlers<Data> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -83,17 +86,26 @@ export const handler: Handlers<Data> = {
       // Also fetch settings, products, and tax definitions
       const [settings, products, taxDefinitions] = await Promise.all([
         backendGet("/api/v1/settings", auth) as Promise<Record<string, string>>,
-        backendGet("/api/v1/products", auth).catch(() => []) as Promise<Product[]>,
+        backendGet("/api/v1/products", auth).catch(() => []) as Promise<
+          Product[]
+        >,
         backendGet("/api/v1/tax-definitions", auth).catch(() => []) as Promise<
           TaxDefinition[]
         >,
       ]);
-      return ctx.render({ authed: true, invoice, products, settings, taxDefinitions });
+      return renderPage(ctx, EditInvoicePage, {
+        authed: true,
+        invoice,
+        products,
+        settings,
+        taxDefinitions,
+      });
     } catch (e) {
-      return ctx.render({ authed: true, error: String(e) });
+      return renderPage(ctx, EditInvoicePage, { authed: true, error: String(e) });
     }
   },
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -206,7 +218,7 @@ export const handler: Handlers<Data> = {
           `/api/v1/invoices/${id}`,
           auth,
         ) as Invoice;
-        return ctx.render({
+        return renderPage(ctx, EditInvoicePage, {
           authed: true,
           invoice,
           error: "Invoice number already exists",
@@ -287,7 +299,11 @@ export default function EditInvoicePage(props: PageProps<Data>) {
                 const singleDef = it.taxes && it.taxes.length === 1
                   ? it.taxes[0].taxDefinitionId
                   : undefined;
-                return { ...it, taxPercent: single, taxDefinitionId: singleDef } as Item & {
+                return {
+                  ...it,
+                  taxPercent: single,
+                  taxDefinitionId: singleDef,
+                } as Item & {
                   taxPercent?: number;
                   taxDefinitionId?: string;
                 };

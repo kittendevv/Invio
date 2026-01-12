@@ -1,30 +1,34 @@
-import { MiddlewareHandlerContext } from "$fresh/server.ts";
-import { getAuthHeaderFromCookie, backendGet } from "../utils/backend.ts";
+import { MiddlewareHandlerContext } from "fresh";
+import { backendGet, getAuthHeaderFromCookie } from "../utils/backend.ts";
 import {
+  DEFAULT_LOCALIZATION,
   LocalizationConfig,
   resolveLocalization,
-  DEFAULT_LOCALIZATION,
 } from "../i18n/mod.ts";
 
-const SECURE_HEADERS_DISABLED = (Deno.env.get("FRONTEND_SECURE_HEADERS_DISABLED") || "").toLowerCase() === "true";
-const HSTS_ENABLED = (Deno.env.get("ENABLE_HSTS") || "").toLowerCase() === "true";
-const CONTENT_SECURITY_POLICY = Deno.env.get("FRONTEND_CONTENT_SECURITY_POLICY") ||
+const SECURE_HEADERS_DISABLED =
+  (Deno.env.get("FRONTEND_SECURE_HEADERS_DISABLED") || "").toLowerCase() ===
+    "true";
+const HSTS_ENABLED =
+  (Deno.env.get("ENABLE_HSTS") || "").toLowerCase() === "true";
+const CONTENT_SECURITY_POLICY =
+  Deno.env.get("FRONTEND_CONTENT_SECURITY_POLICY") ||
   "default-src 'self'; " +
-  "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " +
-  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
-  "img-src 'self' data: https:; " +
-  "font-src 'self' data: https://fonts.gstatic.com; " +
-  "connect-src 'self' http://localhost:3000 https: ws: wss:; " +
-  "frame-ancestors 'none'; form-action 'self'; object-src 'none'; base-uri 'none'";
+    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
+    "img-src 'self' data: https:; " +
+    "font-src 'self' data: https://fonts.gstatic.com; " +
+    "connect-src 'self' http://localhost:3000 https: ws: wss:; " +
+    "frame-ancestors 'none'; form-action 'self'; object-src 'none'; base-uri 'none'";
 
 export interface AppState {
   localization: LocalizationConfig;
 }
 
 export async function handler(
-  req: Request,
   ctx: MiddlewareHandlerContext<AppState>,
 ) {
+  const req = ctx.req;
   const cookie = req.headers.get("cookie") || undefined;
   const auth = getAuthHeaderFromCookie(cookie);
 
@@ -62,7 +66,10 @@ export async function handler(
       headers.set("Referrer-Policy", "no-referrer");
     }
     if (!headers.has("Permissions-Policy")) {
-      headers.set("Permissions-Policy", "accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()");
+      headers.set(
+        "Permissions-Policy",
+        "accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+      );
     }
     if (!headers.has("Cross-Origin-Opener-Policy")) {
       headers.set("Cross-Origin-Opener-Policy", "same-origin");
@@ -75,8 +82,13 @@ export async function handler(
     }
     if (HSTS_ENABLED) {
       const url = new URL(req.url);
-      if (url.protocol === "https:" && !headers.has("Strict-Transport-Security")) {
-        headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      if (
+        url.protocol === "https:" && !headers.has("Strict-Transport-Security")
+      ) {
+        headers.set(
+          "Strict-Transport-Security",
+          "max-age=31536000; includeSubDomains",
+        );
       }
     }
   }

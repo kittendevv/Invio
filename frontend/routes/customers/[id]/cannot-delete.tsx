@@ -1,13 +1,16 @@
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../../../components/Layout.tsx";
-import { LuList, LuAlertTriangle } from "../../../components/icons.tsx";
+import { LuAlertTriangle, LuList } from "../../../components/icons.tsx";
 import { getAuthHeaderFromCookie } from "../../../utils/backend.ts";
+import { renderPage } from "../../../utils/render.tsx";
 import { useTranslations } from "../../../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
 type Data = { authed: boolean; id: string };
 
 export const handler: Handlers<Data> = {
-  GET(req, ctx) {
+  GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -18,7 +21,7 @@ export const handler: Handlers<Data> = {
       });
     }
     const { id } = ctx.params as { id: string };
-    return ctx.render({ authed: true, id });
+    return renderPage(ctx, CannotDeleteCustomer, { authed: true, id });
   },
 };
 

@@ -1,7 +1,9 @@
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../components/Layout.tsx";
 import { backendGet, getAuthHeaderFromCookie } from "../utils/backend.ts";
+import { renderPage } from "../utils/render.tsx";
 import { useTranslations } from "../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
 type Invoice = {
   id: string;
@@ -31,7 +33,8 @@ type Data = {
 };
 
 export const handler: Handlers<Data> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -45,7 +48,9 @@ export const handler: Handlers<Data> = {
       const [invoices, customers, settings] = await Promise.all([
         backendGet("/api/v1/invoices", auth) as Promise<Invoice[]>,
         backendGet("/api/v1/customers", auth) as Promise<unknown[]>,
-        backendGet("/api/v1/settings", auth).catch(() => ({})) as Promise<Record<string, unknown>>,
+        backendGet("/api/v1/settings", auth).catch(() => ({})) as Promise<
+          Record<string, unknown>
+        >,
       ]);
 
       const currency = (invoices[0]?.currency as string) || "USD";
@@ -73,19 +78,23 @@ export const handler: Handlers<Data> = {
         )
         .slice(0, 5);
 
-  // Read version from VERSION file (container or repo root)
-      let version = 'unknown';
-      const possiblePaths = ['/app/VERSION', Deno.cwd() + '/../VERSION', Deno.cwd() + '/VERSION'];
+      // Read version from VERSION file (container or repo root)
+      let version = "unknown";
+      const possiblePaths = [
+        "/app/VERSION",
+        Deno.cwd() + "/../VERSION",
+        Deno.cwd() + "/VERSION",
+      ];
       for (const path of possiblePaths) {
         try {
-          version = await Deno.readTextFile(path).then(v => v.trim());
+          version = await Deno.readTextFile(path).then((v) => v.trim());
           break;
         } catch {
           // Ignore and try next path
         }
       }
 
-      return ctx.render({
+      return renderPage(ctx, Dashboard, {
         authed: true,
         counts: {
           invoices: invoices.length,
@@ -98,7 +107,7 @@ export const handler: Handlers<Data> = {
         dateFormat,
       });
     } catch (e) {
-      return ctx.render({ authed: true, error: String(e) });
+      return renderPage(ctx, Dashboard, { authed: true, error: String(e) });
     }
   },
 };
@@ -150,7 +159,9 @@ export default function Dashboard(props: PageProps<Data>) {
           </div>
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
-              <div class="text-xs sm:text-sm opacity-70">{t("Open Invoices")}</div>
+              <div class="text-xs sm:text-sm opacity-70">
+                {t("Open Invoices")}
+              </div>
               <div class="text-2xl sm:text-3xl font-extrabold">
                 {(props.data.status?.sent || 0) +
                   (props.data.status?.overdue || 0)}
@@ -160,7 +171,9 @@ export default function Dashboard(props: PageProps<Data>) {
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
               <div class="text-xs sm:text-sm opacity-70">{t("Version")}</div>
-              <div class="text-2xl sm:text-3xl font-extrabold">{props.data.version}</div>
+              <div class="text-2xl sm:text-3xl font-extrabold">
+                {props.data.version}
+              </div>
             </div>
           </div>
         </div>
@@ -170,7 +183,9 @@ export default function Dashboard(props: PageProps<Data>) {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
-              <div class="text-xs sm:text-sm opacity-70">{t("Total Billed")}</div>
+              <div class="text-xs sm:text-sm opacity-70">
+                {t("Total Billed")}
+              </div>
               <div class="text-xl sm:text-2xl font-bold">
                 {fmtMoney(props.data.money.billed)}
               </div>
@@ -178,7 +193,9 @@ export default function Dashboard(props: PageProps<Data>) {
           </div>
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
-              <div class="text-xs sm:text-sm opacity-70">{t("Outstanding")}</div>
+              <div class="text-xs sm:text-sm opacity-70">
+                {t("Outstanding")}
+              </div>
               <div class="text-xl sm:text-2xl font-bold">
                 {fmtMoney(props.data.money.outstanding)}
               </div>
@@ -200,25 +217,35 @@ export default function Dashboard(props: PageProps<Data>) {
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
               <div class="text-xs sm:text-sm opacity-70">{t("Draft")}</div>
-              <div class="text-lg sm:text-xl font-semibold">{props.data.status.draft}</div>
+              <div class="text-lg sm:text-xl font-semibold">
+                {props.data.status.draft}
+              </div>
             </div>
           </div>
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
               <div class="text-xs sm:text-sm opacity-70">{t("Sent")}</div>
-              <div class="text-lg sm:text-xl font-semibold">{props.data.status.sent}</div>
+              <div class="text-lg sm:text-xl font-semibold">
+                {props.data.status.sent}
+              </div>
             </div>
           </div>
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
               <div class="text-xs sm:text-sm opacity-70">{t("Paid")}</div>
-              <div class="text-lg sm:text-xl font-semibold">{props.data.status.paid}</div>
+              <div class="text-lg sm:text-xl font-semibold">
+                {props.data.status.paid}
+              </div>
             </div>
           </div>
           <div class="card bg-base-100 border border-base-300 rounded-box">
             <div class="card-body p-4">
               <div class="text-xs sm:text-sm opacity-70">{t("Overdue")}</div>
-              <div class={`text-lg sm:text-xl font-semibold ${props.data.status?.overdue > 0 ? 'text-error' : ''}`}>
+              <div
+                class={`text-lg sm:text-xl font-semibold ${
+                  props.data.status?.overdue > 0 ? "text-error" : ""
+                }`}
+              >
                 {props.data.status.overdue}
               </div>
             </div>
@@ -234,7 +261,7 @@ export default function Dashboard(props: PageProps<Data>) {
               {t("View all")}
             </a>
           </div>
-          
+
           {/* Mobile Card View */}
           <div class="block lg:hidden p-3 space-y-3">
             {props.data.recent.map((inv) => {
@@ -243,9 +270,11 @@ export default function Dashboard(props: PageProps<Data>) {
               let date = "";
               if (d && !isNaN(d.getTime())) {
                 const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                date = dateFormat === "DD.MM.YYYY" ? `${day}.${month}.${year}` : `${year}-${month}-${day}`;
+                const month = String(d.getMonth() + 1).padStart(2, "0");
+                const day = String(d.getDate()).padStart(2, "0");
+                date = dateFormat === "DD.MM.YYYY"
+                  ? `${day}.${month}.${year}`
+                  : `${year}-${month}-${day}`;
               }
               const badge = inv.status === "paid"
                 ? "badge-success"
@@ -261,12 +290,19 @@ export default function Dashboard(props: PageProps<Data>) {
                 overdue: t("Overdue"),
               };
               return (
-                <a href={`/invoices/${inv.id}`} class="card bg-base-200 hover:shadow-md transition-shadow">
+                <a
+                  href={`/invoices/${inv.id}`}
+                  class="card bg-base-200 hover:shadow-md transition-shadow"
+                >
                   <div class="card-body p-3">
                     <div class="flex justify-between items-start mb-2">
                       <div class="flex-1">
-                        <div class="font-semibold text-sm">{inv.invoiceNumber}</div>
-                        <div class="text-xs mt-1 opacity-70">{inv.customer?.name || ""}</div>
+                        <div class="font-semibold text-sm">
+                          {inv.invoiceNumber}
+                        </div>
+                        <div class="text-xs mt-1 opacity-70">
+                          {inv.customer?.name || ""}
+                        </div>
                       </div>
                       <span class={`badge badge-sm ${badge}`}>
                         {statusLabels[inv.status] || inv.status}
@@ -274,7 +310,9 @@ export default function Dashboard(props: PageProps<Data>) {
                     </div>
                     <div class="flex justify-between items-center text-xs pt-2 border-t border-base-300">
                       <div class="opacity-70">{date}</div>
-                      <div class="font-semibold">{fmtMoney(inv.total || 0)}</div>
+                      <div class="font-semibold">
+                        {fmtMoney(inv.total || 0)}
+                      </div>
                     </div>
                   </div>
                 </a>
@@ -302,9 +340,11 @@ export default function Dashboard(props: PageProps<Data>) {
                   let date = "";
                   if (d && !isNaN(d.getTime())) {
                     const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    date = dateFormat === "DD.MM.YYYY" ? `${day}.${month}.${year}` : `${year}-${month}-${day}`;
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    date = dateFormat === "DD.MM.YYYY"
+                      ? `${day}.${month}.${year}`
+                      : `${year}-${month}-${day}`;
                   }
                   const badge = inv.status === "paid"
                     ? "badge-success"

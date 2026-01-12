@@ -2,7 +2,7 @@
 export function formatMoney(
   value: number | undefined,
   currency: string = "USD",
-  numberFormat: "comma" | "period" = "comma"
+  numberFormat: "comma" | "period" = "comma",
 ): string {
   if (typeof value !== "number") return "";
 
@@ -24,7 +24,9 @@ export function formatMoney(
 }
 
 // Helper function to get number format from settings
-export function getNumberFormat(settings?: Record<string, unknown>): "comma" | "period" {
+export function getNumberFormat(
+  settings?: Record<string, unknown>,
+): "comma" | "period" {
   const format = (settings?.numberFormat as string) || "comma";
   return format === "period" ? "period" : "comma";
 }

@@ -4,9 +4,13 @@ export const BACKEND_URL = Deno.env.get("BACKEND_URL") ||
 const SESSION_COOKIE = "invio_session";
 const DEFAULT_SESSION_MAX_AGE = Math.max(
   300,
-  Math.min(60 * 60 * 12, parseInt(Deno.env.get("SESSION_TTL_SECONDS") || "3600", 10) || 3600),
+  Math.min(
+    60 * 60 * 12,
+    parseInt(Deno.env.get("SESSION_TTL_SECONDS") || "3600", 10) || 3600,
+  ),
 );
-const COOKIE_SECURE = (Deno.env.get("COOKIE_SECURE") || "true").toLowerCase() !== "false";
+const COOKIE_SECURE =
+  (Deno.env.get("COOKIE_SECURE") || "true").toLowerCase() !== "false";
 
 function parseCookies(cookieHeader?: string): Record<string, string> {
   if (!cookieHeader) return {};
@@ -29,7 +33,10 @@ export function getAuthHeaderFromCookie(cookieHeader?: string): string | null {
   return `Bearer ${token}`;
 }
 
-export function setAuthCookieHeaders(token: string, maxAgeSeconds = DEFAULT_SESSION_MAX_AGE): HeadersInit {
+export function setAuthCookieHeaders(
+  token: string,
+  maxAgeSeconds = DEFAULT_SESSION_MAX_AGE,
+): HeadersInit {
   const attrs = [
     `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
     "Path=/",

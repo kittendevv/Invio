@@ -2,11 +2,11 @@ import { ComponentChildren } from "preact";
 import { Breadcrumbs } from "./Breadcrumbs.tsx";
 import {
   LuLayoutDashboard,
-  LuReceiptText,
-  LuPackage,
-  LuUsers,
-  LuSettings,
   LuLogOut,
+  LuPackage,
+  LuReceiptText,
+  LuSettings,
+  LuUsers,
 } from "./icons.tsx";
 import DemoModeDisabler from "../islands/DemoModeDisabler.tsx";
 import { useTranslations } from "../i18n/context.tsx";
@@ -14,8 +14,8 @@ import { useTranslations } from "../i18n/context.tsx";
 export function Layout(
   props: {
     children: ComponentChildren;
-  authed?: boolean;
-  demoMode?: boolean;
+    authed?: boolean;
+    demoMode?: boolean;
     path?: string;
     wide?: boolean;
   },
@@ -23,7 +23,10 @@ export function Layout(
   const { t } = useTranslations();
   return (
     <div class="min-h-screen bg-base-200">
-  <div class="navbar bg-base-100 border-b border-base-300 px-3 sm:px-4" data-demo={props.demoMode ? "true" : "false"}>
+      <div
+        class="navbar bg-base-100 border-b border-base-300 px-3 sm:px-4"
+        data-demo={props.demoMode ? "true" : "false"}
+      >
         <div class="container mx-auto flex items-center">
           {/* Left: Logo only */}
           <div class="navbar-start flex-1">
@@ -54,32 +57,38 @@ export function Layout(
               <ul class="menu menu-horizontal px-1 hidden md:flex">
                 <li>
                   <a href="/dashboard">
-                    <LuLayoutDashboard size={16} />{t("Dashboard")}
+                    <LuLayoutDashboard size={16} />
+                    {t("Dashboard")}
                   </a>
                 </li>
                 <li>
                   <a href="/invoices">
-                    <LuReceiptText size={16} />{t("Invoices")}
+                    <LuReceiptText size={16} />
+                    {t("Invoices")}
                   </a>
                 </li>
                 <li>
                   <a href="/products">
-                    <LuPackage size={16} />{t("Products")}
+                    <LuPackage size={16} />
+                    {t("Products")}
                   </a>
                 </li>
                 <li>
                   <a href="/customers">
-                    <LuUsers size={16} />{t("Customers")}
+                    <LuUsers size={16} />
+                    {t("Customers")}
                   </a>
                 </li>
                 <li>
                   <a href="/settings">
-                    <LuSettings size={16} />{t("Settings")}
+                    <LuSettings size={16} />
+                    {t("Settings")}
                   </a>
                 </li>
                 <li>
                   <a href="/logout">
-                    <LuLogOut size={16} />{t("Logout")}
+                    <LuLogOut size={16} />
+                    {t("Logout")}
                   </a>
                 </li>
               </ul>
@@ -109,32 +118,38 @@ export function Layout(
                 >
                   <li>
                     <a href="/dashboard">
-                      <LuLayoutDashboard size={16} />{t("Dashboard")}
+                      <LuLayoutDashboard size={16} />
+                      {t("Dashboard")}
                     </a>
                   </li>
                   <li>
                     <a href="/invoices">
-                      <LuReceiptText size={16} />{t("Invoices")}
+                      <LuReceiptText size={16} />
+                      {t("Invoices")}
                     </a>
                   </li>
                   <li>
                     <a href="/products">
-                      <LuPackage size={16} />{t("Products")}
+                      <LuPackage size={16} />
+                      {t("Products")}
                     </a>
                   </li>
                   <li>
                     <a href="/customers">
-                      <LuUsers size={16} />{t("Customers")}
+                      <LuUsers size={16} />
+                      {t("Customers")}
                     </a>
                   </li>
                   <li>
                     <a href="/settings">
-                      <LuSettings size={16} />{t("Settings")}
+                      <LuSettings size={16} />
+                      {t("Settings")}
                     </a>
                   </li>
                   <li>
                     <a href="/logout">
-                      <LuLogOut size={16} />{t("Logout")}
+                      <LuLogOut size={16} />
+                      {t("Logout")}
                     </a>
                   </li>
                 </ul>

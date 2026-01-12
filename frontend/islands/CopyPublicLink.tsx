@@ -14,12 +14,15 @@ export default function CopyPublicLink() {
     }
     const onClick = async () => {
       try {
-        const text = urlEl.textContent || (urlEl as HTMLAnchorElement).href || "";
+        const text = urlEl.textContent || (urlEl as HTMLAnchorElement).href ||
+          "";
         await navigator.clipboard.writeText(text);
         const original = btn.dataset.originalLabel || fallbackLabel;
         btn.textContent = successLabel;
-        setTimeout(() => { btn.textContent = original; }, 1200);
-      } catch (_e) {/* ignore */}
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 1200);
+      } catch (_e) { /* ignore */ }
     };
     btn.addEventListener("click", onClick);
     return () => btn.removeEventListener("click", onClick);

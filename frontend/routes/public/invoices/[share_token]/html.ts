@@ -1,8 +1,8 @@
-import { Handlers } from "$fresh/server.ts";
 import { BACKEND_URL } from "../../../../utils/backend.ts";
+import { Handlers } from "fresh/compat";
 
 export const handler: Handlers = {
-  async GET(_req, ctx) {
+  async GET(ctx) {
     const { share_token } = ctx.params as { share_token: string };
     const backendUrl =
       `${BACKEND_URL}/api/v1/public/invoices/${share_token}/html`;

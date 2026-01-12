@@ -16,4 +16,4 @@ export default {
     styled: true,
     utils: true,
   },
-}
+};

@@ -1,14 +1,17 @@
-import { Handlers, PageProps } from "$fresh/server.ts";
+import { PageProps } from "fresh";
 import { Layout } from "../../components/Layout.tsx";
 import { LuUserPlus } from "../../components/icons.tsx";
 import { backendGet, getAuthHeaderFromCookie } from "../../utils/backend.ts";
+import { renderPage } from "../../utils/render.tsx";
 import { useTranslations } from "../../i18n/context.tsx";
+import { Handlers } from "fresh/compat";
 
 type Customer = { id: string; name?: string; email?: string };
 type Data = { authed: boolean; customers?: Customer[]; error?: string };
 
 export const handler: Handlers<Data> = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = getAuthHeaderFromCookie(
       req.headers.get("cookie") || undefined,
     );
@@ -23,9 +26,9 @@ export const handler: Handlers<Data> = {
         "/api/v1/customers",
         auth,
       ) as Customer[];
-      return ctx.render({ authed: true, customers });
+      return renderPage(ctx, Customers, { authed: true, customers });
     } catch (e) {
-      return ctx.render({ authed: true, error: String(e) });
+      return renderPage(ctx, Customers, { authed: true, error: String(e) });
     }
   },
 };
@@ -37,8 +40,12 @@ export default function Customers(props: PageProps<Data>) {
     <Layout authed={props.data.authed} path={new URL(props.url).pathname}>
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <h1 class="text-2xl font-semibold">{t("Customers")}</h1>
-        <a href="/customers/new" class="btn btn-sm btn-primary w-full sm:w-auto">
-          <LuUserPlus size={16} />{t("New Customer")}
+        <a
+          href="/customers/new"
+          class="btn btn-sm btn-primary w-full sm:w-auto"
+        >
+          <LuUserPlus size={16} />
+          {t("New Customer")}
         </a>
       </div>
       {props.data.error && (
@@ -50,7 +57,10 @@ export default function Customers(props: PageProps<Data>) {
       {/* Mobile Card View */}
       <div class="block md:hidden space-y-3">
         {list.map((c) => (
-          <a href={`/customers/${c.id}`} class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow">
+          <a
+            href={`/customers/${c.id}`}
+            class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
+          >
             <div class="card-body p-4">
               <div class="font-semibold link">{c.name || c.id}</div>
               {c.email && <div class="text-sm opacity-70 mt-1">{c.email}</div>}
@@ -62,7 +72,9 @@ export default function Customers(props: PageProps<Data>) {
             <div class="card-body text-center py-10 text-sm opacity-70">
               <span>
                 {t("No customers yet.")}{" "}
-                <a href="/customers/new" class="link">{t("Create your first customer")}</a>
+                <a href="/customers/new" class="link">
+                  {t("Create your first customer")}
+                </a>
                 {"."}
               </span>
             </div>
@@ -95,7 +107,9 @@ export default function Customers(props: PageProps<Data>) {
                 <td colSpan={2} class="text-center py-10 text-sm opacity-70">
                   <span>
                     {t("No customers yet.")}{" "}
-                    <a href="/customers/new" class="link">{t("Create your first customer")}</a>
+                    <a href="/customers/new" class="link">
+                      {t("Create your first customer")}
+                    </a>
                     {"."}
                   </span>
                 </td>

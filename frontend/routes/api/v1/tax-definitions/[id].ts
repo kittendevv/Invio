@@ -1,8 +1,13 @@
-import { Handlers } from "$fresh/server.ts";
-import { buildTaxDefinitionPayload, proxyToBackend, resolveAuth } from "./_shared.ts";
+import {
+  buildTaxDefinitionPayload,
+  proxyToBackend,
+  resolveAuth,
+} from "./_shared.ts";
+import { Handlers } from "fresh/compat";
 
 export const handler: Handlers = {
-  async GET(req, ctx) {
+  async GET(ctx) {
+    const req = ctx.req;
     const auth = resolveAuth(req);
     if (!auth) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -12,13 +17,18 @@ export const handler: Handlers = {
     }
 
     const id = String(ctx.params.id || "");
-    return await proxyToBackend(req, `/api/v1/tax-definitions/${encodeURIComponent(id)}`, {
-      method: "GET",
-      headers: { Authorization: auth },
-    });
+    return await proxyToBackend(
+      req,
+      `/api/v1/tax-definitions/${encodeURIComponent(id)}`,
+      {
+        method: "GET",
+        headers: { Authorization: auth },
+      },
+    );
   },
 
-  async POST(req, ctx) {
+  async POST(ctx) {
+    const req = ctx.req;
     const auth = resolveAuth(req);
     if (!auth) {
       return new Response("Unauthorized", { status: 401 });
@@ -35,10 +45,14 @@ export const handler: Handlers = {
 
     try {
       if (override === "DELETE") {
-        return await proxyToBackend(req, `/api/v1/tax-definitions/${encodeURIComponent(id)}`, {
-          method: "DELETE",
-          headers: { Authorization: auth },
-        });
+        return await proxyToBackend(
+          req,
+          `/api/v1/tax-definitions/${encodeURIComponent(id)}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: auth },
+          },
+        );
       }
 
       // Default: PUT (edit)
@@ -51,14 +65,18 @@ export const handler: Handlers = {
         { partial: false },
       );
 
-      return await proxyToBackend(req, `/api/v1/tax-definitions/${encodeURIComponent(id)}`, {
-        method: "PUT",
-        headers: {
-          Authorization: auth,
-          "Content-Type": "application/json",
+      return await proxyToBackend(
+        req,
+        `/api/v1/tax-definitions/${encodeURIComponent(id)}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: auth,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
     } catch (e) {
       return new Response(JSON.stringify({ error: String(e) }), {
         status: 400,
@@ -67,7 +85,8 @@ export const handler: Handlers = {
     }
   },
 
-  async PUT(req, ctx) {
+  async PUT(ctx) {
+    const req = ctx.req;
     const auth = resolveAuth(req);
     if (!auth) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -79,14 +98,18 @@ export const handler: Handlers = {
     const id = String(ctx.params.id || "");
     try {
       const payload = await buildTaxDefinitionPayload(req);
-      return await proxyToBackend(req, `/api/v1/tax-definitions/${encodeURIComponent(id)}`, {
-        method: "PUT",
-        headers: {
-          Authorization: auth,
-          "Content-Type": "application/json",
+      return await proxyToBackend(
+        req,
+        `/api/v1/tax-definitions/${encodeURIComponent(id)}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: auth,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
     } catch (e) {
       return new Response(JSON.stringify({ error: String(e) }), {
         status: 400,
@@ -95,7 +118,8 @@ export const handler: Handlers = {
     }
   },
 
-  async DELETE(req, ctx) {
+  async DELETE(ctx) {
+    const req = ctx.req;
     const auth = resolveAuth(req);
     if (!auth) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -105,9 +129,13 @@ export const handler: Handlers = {
     }
 
     const id = String(ctx.params.id || "");
-    return await proxyToBackend(req, `/api/v1/tax-definitions/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers: { Authorization: auth },
-    });
+    return await proxyToBackend(
+      req,
+      `/api/v1/tax-definitions/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: auth },
+      },
+    );
   },
 };

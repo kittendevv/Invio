@@ -1,26 +1,23 @@
 {
-  "nodeModulesDir": "auto",
-  "lock": false,
   "tasks": {
-    "start": "deno run -A --watch=static/,routes/ dev.ts",
-    "build": "deno run -A dev.ts build",
-    "preview": "deno run -A main.ts",
-    "css:build": "deno run --allow-read --allow-write --allow-env --allow-run npm:tailwindcss -i ./static/input.css -o ./static/styles.css --minify",
-    "css:watch": "deno run --allow-read --allow-write --allow-env --allow-run npm:tailwindcss -i ./static/input.css -o ./static/styles.css --watch"
+    "start": "deno run -A npm:vite",
+    "build": "vite build",
+    "preview": "deno serve -A _fresh/server.js"
   },
   "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "preact" },
   "imports": {
     "$std/": "https://deno.land/std@0.224.0/",
     "@preact-icons/lu": "jsr:@preact-icons/lu@^1.0.13",
-    "preact": "https://esm.sh/preact@10.22.0",
-    "preact/hooks": "https://esm.sh/preact@10.22.0/hooks",
-    "preact/jsx-runtime": "https://esm.sh/preact@10.22.0/jsx-runtime",
-    "preact/debug": "https://esm.sh/preact@10.22.0/debug",
-    "$fresh/": "https://deno.land/x/fresh@1.7.3/",
-    "fresh": "https://deno.land/x/fresh@1.6.5/mod.ts",
-    "preact/": "https://esm.sh/preact@10.22.0/",
-    "@preact/signals": "https://esm.sh/*@preact/signals@1.2.2",
-    "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.5.1"
+    "esbuild": "npm:esbuild@^0.27.2",
+    "preact": "npm:preact@^10.28.2",
+    "preact/hooks": "npm:preact@^10.28.2/hooks",
+    "preact/jsx-runtime": "npm:preact@^10.28.2/jsx-runtime",
+    "preact/debug": "npm:preact@^10.28.2/debug",
+    "fresh": "jsr:@fresh/core@^2.2.0",
+    "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.0.8",
+    "rollup": "npm:rollup@^4.55.1",
+    "vite": "npm:vite@^7.3.1",
+    "@preact/signals": "npm:@preact/signals@^2.5.1"
   },
   "lint": { "rules": { "tags": ["fresh", "recommended"] } },
   "exclude": ["**/_fresh/*"]

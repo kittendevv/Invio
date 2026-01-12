@@ -1,8 +1,9 @@
-import { Handlers } from "$fresh/server.ts";
 import { BACKEND_URL } from "../../../utils/backend.ts";
+import { Handlers } from "fresh/compat";
 
 export const handler: Handlers = {
-  async POST(req) {
+  async POST(ctx) {
+    const req = ctx.req;
     let body: { username?: unknown; password?: unknown } = {};
     try {
       body = await req.json();
@@ -27,7 +28,12 @@ export const handler: Handlers = {
       body: JSON.stringify({ username, password }),
     });
     const text = await resp.text();
-    const downstreamHeaders = { "Content-Type": resp.headers.get("content-type") || "application/json" };
-    return new Response(text || "{}", { status: resp.status, headers: downstreamHeaders });
+    const downstreamHeaders = {
+      "Content-Type": resp.headers.get("content-type") || "application/json",
+    };
+    return new Response(text || "{}", {
+      status: resp.status,
+      headers: downstreamHeaders,
+    });
   },
 };

@@ -1,7 +1,7 @@
 import { createContext } from "preact";
 import { ComponentChildren } from "preact";
 import { useContext } from "preact/hooks";
-import { LocalizationConfig, DEFAULT_LOCALIZATION } from "./mod.ts";
+import { DEFAULT_LOCALIZATION, LocalizationConfig } from "./mod.ts";
 
 export const LocalizationContext = createContext<LocalizationConfig>(
   DEFAULT_LOCALIZATION,
@@ -18,5 +18,13 @@ export function LocalizationProvider(
 }
 
 export function useTranslations() {
-  return useContext(LocalizationContext);
+  try {
+    const context = useContext(LocalizationContext);
+    // During SSR, context might be undefined if not yet wrapped by provider
+    return context ?? DEFAULT_LOCALIZATION;
+  } catch (_error) {
+    // If useContext fails during SSR (e.g., context not properly initialized),
+    // fall back to default localization
+    return DEFAULT_LOCALIZATION;
+  }
 }
