@@ -13,8 +13,6 @@ export default function App({ Component, state }: AppProps<unknown, AppState>) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Invio</title>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        {/* Early theme init to prevent FOUC */}
-        <script src="/app-init.js"></script>
         {/* Inter font */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link

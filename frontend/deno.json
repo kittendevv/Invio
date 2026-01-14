@@ -1,24 +1,61 @@
 {
+  "nodeModulesDir": "manual",
   "tasks": {
-    "start": "deno run -A npm:vite",
+    "check": "deno fmt --check . && deno lint . && deno check",
+    "dev": "vite",
     "build": "vite build",
-    "preview": "deno serve -A _fresh/server.js"
+    "start": "deno serve -A _fresh/server.js",
+    "update": "deno run -A -r jsr:@fresh/update ."
   },
-  "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "preact" },
+  "lint": {
+    "rules": {
+      "tags": [
+        "fresh",
+        "recommended"
+      ]
+    }
+  },
+  "exclude": [
+    "**/_fresh/*"
+  ],
   "imports": {
-    "$std/": "https://deno.land/std@0.224.0/",
-    "@preact-icons/lu": "jsr:@preact-icons/lu@^1.0.13",
-    "esbuild": "npm:esbuild@^0.27.2",
-    "preact": "npm:preact@^10.28.2",
-    "preact/hooks": "npm:preact@^10.28.2/hooks",
-    "preact/jsx-runtime": "npm:preact@^10.28.2/jsx-runtime",
-    "preact/debug": "npm:preact@^10.28.2/debug",
+    "@/": "./",
+    "daisyui": "npm:daisyui@^5.5.14",
     "fresh": "jsr:@fresh/core@^2.2.0",
+    "preact": "npm:preact@^10.27.2",
+    "@preact/signals": "npm:@preact/signals@^2.5.0",
     "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.0.8",
-    "rollup": "npm:rollup@^4.55.1",
-    "vite": "npm:vite@^7.3.1",
-    "@preact/signals": "npm:@preact/signals@^2.5.1"
+    "vite": "npm:vite@^7.1.3",
+    "tailwindcss": "npm:tailwindcss@^4.1.10",
+    "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.1.12"
   },
-  "lint": { "rules": { "tags": ["fresh", "recommended"] } },
-  "exclude": ["**/_fresh/*"]
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.asynciterable",
+      "dom.iterable",
+      "deno.ns"
+    ],
+    "jsx": "precompile",
+    "jsxImportSource": "preact",
+    "jsxPrecompileSkipElements": [
+      "a",
+      "img",
+      "source",
+      "body",
+      "html",
+      "head",
+      "title",
+      "meta",
+      "script",
+      "link",
+      "style",
+      "base",
+      "noscript",
+      "template"
+    ],
+    "types": [
+      "vite/client"
+    ]
+  }
 }
