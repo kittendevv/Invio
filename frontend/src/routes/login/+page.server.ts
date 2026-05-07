@@ -6,11 +6,21 @@ import {
   DEFAULT_SESSION_MAX_AGE,
 } from "$lib/backend";
 import { getDemoMode } from "$lib/demo";
+import { env } from "$env/dynamic/private";
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   if (locals.user) {
     throw redirect(303, "/dashboard");
   }
+  const oidcEnabled =
+    (env.OIDC_ENABLED || "false").toLowerCase() === "true";
+  const urlError = url.searchParams.get("error");
+  return {
+    oidcEnabled,
+    oidcError: urlError?.startsWith("oidc_")
+      ? "SSO login failed. Please try again or use username and password."
+      : null,
+  };
 };
 export const actions: Actions = {
   login: async ({ request, cookies }) => {
@@ -156,5 +166,22 @@ export const actions: Actions = {
     });
 
     throw redirect(303, "/dashboard");
+  },
+
+  oidcLogin: async () => {
+    let resp: Response;
+    try {
+      resp = await fetch(`${BACKEND_URL}/api/v1/auth/oidc/authorize`);
+    } catch {
+      return fail(500, { error: "Unable to reach authentication server" });
+    }
+    if (!resp.ok) {
+      return fail(503, { error: "SSO login is not available" });
+    }
+    const data = await resp.json();
+    if (!data?.url) {
+      return fail(500, { error: "Invalid SSO response" });
+    }
+    throw redirect(303, data.url);
   },
 };

@@ -196,6 +196,7 @@ function ensureUserColumns(database: DB): void {
     "INTEGER NOT NULL DEFAULT 0",
   );
   addColumnIfMissing(database, "users", "two_factor_recovery_codes", "TEXT");
+  addColumnIfMissing(database, "users", "oidc_subject", "TEXT");
 }
 
 function ensureStatusHistoryTable(database: DB): void {
