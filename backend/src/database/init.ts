@@ -475,6 +475,8 @@ function ensureSchemaUpgrades(database: DB): void {
 const BUILTIN_TEMPLATES = [
   { id: "professional-modern", name: "Professional Modern", isDefault: false },
   { id: "minimalist-clean", name: "Minimalist Clean", isDefault: true },
+  { id: "nova", name: "Nova", isDefault: false },
+  { id: "slate", name: "Slate", isDefault: false },
 ] as const;
 
 function loadTemplateHtml(id: string): string {
