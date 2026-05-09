@@ -481,13 +481,13 @@
                 ><div class="label">
                   <span class="label-text">{t("Email")}</span>
                 </div>
-                <input type="email" class="input input-bordered w-full" bind:value={settings.email} disabled={!canUpdateSettings} />
+                <input type="email" class="input input-bordered w-full" bind:value={settings.companyEmail} disabled={!canUpdateSettings} />
               </label>
               <label class="form-control"
                 ><div class="label">
                   <span class="label-text">{t("Phone")}</span>
                 </div>
-                <input type="text" class="input input-bordered w-full" bind:value={settings.phone} disabled={!canUpdateSettings} />
+                <input type="text" class="input input-bordered w-full" bind:value={settings.companyPhone} disabled={!canUpdateSettings} />
               </label>
             </div>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -495,13 +495,13 @@
                 ><div class="label">
                   <span class="label-text">{t("Tax ID")}</span>
                 </div>
-                <input type="text" class="input input-bordered w-full" bind:value={settings.taxId} disabled={!canUpdateSettings} />
+                <input type="text" class="input input-bordered w-full" bind:value={settings.companyTaxId} disabled={!canUpdateSettings} />
               </label>
               <label class="form-control"
                 ><div class="label">
                   <span class="label-text">{t("Country Code")}</span>
                 </div>
-                <input type="text" class="input input-bordered w-full" bind:value={settings.countryCode} disabled={!canUpdateSettings} placeholder="US" />
+                <input type="text" class="input input-bordered w-full" bind:value={settings.companyCountryCode} disabled={!canUpdateSettings} placeholder="US" />
               </label>
             </div>
           </div>
