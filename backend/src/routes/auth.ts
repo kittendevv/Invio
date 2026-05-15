@@ -22,6 +22,13 @@ import {
 } from "../middleware/rateLimiter.ts";
 import { generateUUID } from "../utils/uuid.ts";
 import { isDemoMode } from "../utils/env.ts";
+import {
+  buildAuthorizationUrl,
+  exchangeAndVerify,
+  getOidcConfig,
+  type OidcClaims,
+} from "../utils/oidc.ts";
+import { getDatabase } from "../database/init.ts";
 
 function getSessionTtlSeconds(): number {
   const parsed = parseInt(Deno.env.get("SESSION_TTL_SECONDS") || "3600", 10);
@@ -304,6 +311,124 @@ authRoutes.post("/auth/recover-2fa", async (c) => {
   markChallengeAsUsed(parsed.jti);
   resetRateLimit(clientIp, parsed.userId);
   const session = await issueSessionToken(user);
+  return c.json(session);
+});
+
+authRoutes.get("/auth/oidc/authorize", async (c) => {
+  const oidc = getOidcConfig();
+  if (!oidc.enabled) return c.json({ error: "OIDC not enabled" }, 404);
+  try {
+    const url = await buildAuthorizationUrl();
+    return c.json({ url });
+  } catch (err) {
+    console.error("OIDC authorize error:", err);
+    return c.json({ error: "Failed to build authorization URL" }, 500);
+  }
+});
+
+authRoutes.post("/auth/oidc/callback", async (c) => {
+  const oidc = getOidcConfig();
+  if (!oidc.enabled) return c.json({ error: "OIDC not enabled" }, 404);
+
+  let code: string | undefined;
+  let state: string | undefined;
+  try {
+    const body = await c.req.json();
+    code = typeof body.code === "string" ? body.code : undefined;
+    state = typeof body.state === "string" ? body.state : undefined;
+  } catch {
+    return c.json({ error: "Invalid request body" }, 400);
+  }
+
+  if (!code || !state) return c.json({ error: "Missing code or state" }, 400);
+
+  let claims: OidcClaims;
+  try {
+    claims = await exchangeAndVerify(code, state);
+  } catch (err) {
+    console.error("OIDC callback error:", err);
+    return c.json({ error: "OIDC verification failed" }, 401);
+  }
+
+  const db = getDatabase();
+
+  // 1. Look up by oidc_subject
+  let rows = db.query(
+    "SELECT id, username, is_admin, is_active FROM users WHERE oidc_subject = ?",
+    [claims.sub],
+  ) as unknown[][];
+
+  // 2. Look up by email and bind oidc_subject
+  if (rows.length === 0 && claims.email) {
+    rows = db.query(
+      "SELECT id, username, is_admin, is_active FROM users WHERE email = ?",
+      [claims.email],
+    ) as unknown[][];
+    if (rows.length > 0) {
+      db.query(
+        "UPDATE users SET oidc_subject = ?, updated_at = ? WHERE id = ?",
+        [claims.sub, new Date().toISOString(), String((rows[0] as unknown[])[0])],
+      );
+    }
+  }
+
+  // 3. Auto-provision a new user
+  if (rows.length === 0) {
+    if (!oidc.autoProvision) {
+      return c.json(
+        { error: "No matching Invio account. Contact an administrator." },
+        403,
+      );
+    }
+
+    const baseUsername = (
+      claims.preferred_username || claims.name || claims.sub
+    )
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .slice(0, 50);
+
+    let username = baseUsername;
+    let attempt = 0;
+    while (
+      (db.query("SELECT id FROM users WHERE username = ?", [username]) as unknown[][]).length > 0
+    ) {
+      attempt++;
+      username = `${baseUsername}_${attempt}`;
+    }
+
+    const id = generateUUID();
+    const now = new Date().toISOString();
+    db.query(
+      `INSERT INTO users (id, username, email, display_name, password_hash, is_admin, is_active, oidc_subject, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'oidc:no-password', 0, 1, ?, ?, ?)`,
+      [
+        id,
+        username,
+        claims.email || null,
+        claims.name || null,
+        claims.sub,
+        now,
+        now,
+      ],
+    );
+
+    rows = db.query(
+      "SELECT id, username, is_admin, is_active FROM users WHERE id = ?",
+      [id],
+    ) as unknown[][];
+  }
+
+  const row = rows[0] as unknown[];
+  const userId = String(row[0]);
+  const username = String(row[1]);
+  const isAdmin = Boolean(row[2]);
+  const isActive = Boolean(row[3]);
+
+  if (!isActive) {
+    return c.json({ error: "Account is disabled" }, 403);
+  }
+
+  const session = await issueSessionToken({ id: userId, username, isAdmin });
   return c.json(session);
 });
 

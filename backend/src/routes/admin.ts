@@ -66,6 +66,7 @@ import {
   updateUnit,
 } from "../controllers/productOptions.ts";
 import { buildInvoiceHTML, generatePDF } from "../utils/pdf.ts";
+import { isEmailConfigured, sendEmail } from "../utils/email.ts";
 import { generateUBLInvoiceXML } from "../utils/ubl.ts"; // legacy direct import
 import { generateInvoiceXML, listXMLProfiles } from "../utils/xmlProfiles.ts";
 import { availableInvoiceLocales } from "../i18n/translations.ts";
@@ -1651,6 +1652,183 @@ adminRoutes.get(
       console.error("/invoices/:id/pdf failed:", msg);
       return c.json({ error: "Failed to generate PDF", details: msg }, 500);
     }
+  },
+);
+
+// Send invoice via email (SMTP2GO)
+adminRoutes.post(
+  "/invoices/:id/send-email",
+  requirePermission("invoices", "export"),
+  async (c) => {
+    if (!isEmailConfigured()) {
+      return c.json(
+        { error: "Email is not configured. Set SMTP2GO_API_KEY and EMAIL_FROM_ADDRESS." },
+        503,
+      );
+    }
+
+    const id = c.req.param("id");
+    const invoice = getInvoiceById(id);
+    if (!invoice) return c.json({ error: "Invoice not found" }, 404);
+
+    let to: string[] = [];
+    let subject = "";
+    let message = "";
+    try {
+      const body = await c.req.json();
+      to = Array.isArray(body.to) ? body.to.filter((e: unknown) => typeof e === "string" && e.includes("@")) : [];
+      subject = typeof body.subject === "string" ? body.subject.trim() : "";
+      message = typeof body.message === "string" ? body.message.trim() : "";
+    } catch {
+      return c.json({ error: "Invalid request body" }, 400);
+    }
+
+    if (to.length === 0) {
+      return c.json({ error: "At least one valid recipient email is required" }, 400);
+    }
+    if (!subject) {
+      return c.json({ error: "Subject is required" }, 400);
+    }
+
+    // Build settings map (same as /pdf route)
+    const settings = await getSettings();
+    const settingsMap = settings.reduce(
+      (acc: Record<string, string>, s) => { acc[s.key] = s.value as string; return acc; },
+      {} as Record<string, string>,
+    );
+    if (!settingsMap.postalCityFormat && settingsMap.postal_city_format) {
+      settingsMap.postalCityFormat = settingsMap.postal_city_format;
+    }
+    if (!settingsMap.logo && settingsMap.logoUrl) {
+      settingsMap.logo = settingsMap.logoUrl;
+    }
+
+    const businessSettings = {
+      companyName: settingsMap.companyName || "Your Company",
+      companyAddress: settingsMap.companyAddress || "",
+      companyCity: settingsMap.companyCity || "",
+      companyPostalCode: settingsMap.companyPostalCode || "",
+      companyCountryCode: settingsMap.companyCountryCode || "",
+      postalCityFormat: settingsMap.postalCityFormat || "auto",
+      companyEmail: settingsMap.companyEmail || "",
+      companyPhone: settingsMap.companyPhone || "",
+      companyTaxId: settingsMap.companyTaxId || "",
+      currency: settingsMap.currency || "USD",
+      taxLabel: settingsMap.taxLabel || undefined,
+      logo: settingsMap.logo,
+      paymentMethods: settingsMap.paymentMethods || "Bank Transfer",
+      bankAccount: settingsMap.bankAccount || "",
+      paymentTerms: settingsMap.paymentTerms || "Due in 30 days",
+      defaultNotes: settingsMap.defaultNotes || "",
+      locale: settingsMap.locale || undefined,
+    };
+
+    const highlight = settingsMap.highlight ?? undefined;
+    let selectedTemplateId: string | undefined = settingsMap.templateId?.toLowerCase();
+    if (selectedTemplateId === "professional" || selectedTemplateId === "professional-modern") {
+      selectedTemplateId = "professional-modern";
+    } else if (selectedTemplateId === "minimalist" || selectedTemplateId === "minimalist-clean") {
+      selectedTemplateId = "minimalist-clean";
+    }
+
+    // Generate PDF attachment
+    let pdfBuffer: Uint8Array;
+    try {
+      const customer = getCustomerById(invoice.customerId);
+      const renderLocale = resolveInvoiceRenderLocale(
+        invoice.locale,
+        customer?.countryCode,
+        settingsMap.locale,
+      );
+      pdfBuffer = await generatePDF(
+        invoice,
+        businessSettings,
+        selectedTemplateId,
+        highlight,
+        {
+          embedXml: false,
+          dateFormat: settingsMap.dateFormat,
+          numberFormat: settingsMap.numberFormat,
+          locale: renderLocale,
+        },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("Email: PDF generation failed:", msg);
+      return c.json({ error: "Failed to generate PDF attachment", details: msg }, 500);
+    }
+
+    // Build email body
+    const companyName = businessSettings.companyName;
+    const invoiceNumber = invoice.invoiceNumber || invoice.id;
+    const total = `${Number(invoice.total || 0).toFixed(2)} ${invoice.currency || ""}`.trim();
+    const issueDate = invoice.issueDate
+      ? new Date(invoice.issueDate).toISOString().slice(0, 10)
+      : "";
+    const dueDate = invoice.dueDate
+      ? new Date(invoice.dueDate).toISOString().slice(0, 10)
+      : null;
+    const origin = c.req.header("origin") ||
+      c.req.header("referer")?.replace(/\/$/, "") || "";
+    const shareLink = invoice.shareToken && origin
+      ? `${origin}/public/invoices/${invoice.shareToken}`
+      : null;
+
+    const messageHtml = message
+      ? `<p style="white-space:pre-wrap;">${message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
+      : "";
+    const shareLinkHtml = shareLink
+      ? `<p><a href="${shareLink}" style="color:#2563eb;">View invoice online</a></p>`
+      : "";
+    const dueDateHtml = dueDate ? `<tr><td style="padding:4px 8px;color:#6b7280;">Due date</td><td style="padding:4px 8px;">${dueDate}</td></tr>` : "";
+
+    const htmlBody = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:sans-serif;color:#111;max-width:600px;margin:0 auto;padding:24px;">
+  <h2 style="margin-top:0;">${companyName}</h2>
+  ${messageHtml}
+  <table style="border-collapse:collapse;margin:16px 0;width:auto;">
+    <tr><td style="padding:4px 8px;color:#6b7280;">Invoice</td><td style="padding:4px 8px;font-weight:600;">#${invoiceNumber}</td></tr>
+    <tr><td style="padding:4px 8px;color:#6b7280;">Issue date</td><td style="padding:4px 8px;">${issueDate}</td></tr>
+    ${dueDateHtml}
+    <tr><td style="padding:4px 8px;color:#6b7280;">Total</td><td style="padding:4px 8px;font-weight:600;">${total}</td></tr>
+  </table>
+  ${shareLinkHtml}
+  <p style="color:#6b7280;font-size:13px;">The invoice PDF is attached to this email.</p>
+</body>
+</html>`;
+
+    const textBody = [
+      companyName,
+      "",
+      message || "",
+      `Invoice: #${invoiceNumber}`,
+      `Issue date: ${issueDate}`,
+      dueDate ? `Due date: ${dueDate}` : "",
+      `Total: ${total}`,
+      shareLink ? `\nView online: ${shareLink}` : "",
+    ].filter((l) => l !== undefined).join("\n").trim();
+
+    try {
+      await sendEmail({
+        to,
+        subject,
+        htmlBody,
+        textBody,
+        attachment: {
+          filename: `invoice-${invoiceNumber}.pdf`,
+          content: pdfBuffer,
+          mimeType: "application/pdf",
+        },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("Email send failed:", msg);
+      return c.json({ error: "Failed to send email", details: msg }, 502);
+    }
+
+    return c.json({ sent: true, recipients: to.length });
   },
 );
 

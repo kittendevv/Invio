@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getContext } from "svelte";
-  import { FileText, Edit, Copy, ExternalLink, Download, ArrowLeft, MoreHorizontal, FileCode2, ShieldOff, Send, Ban, Trash2, CheckCircle, Upload, Check, Pencil, ChevronDown } from "lucide-svelte";
+  import { FileText, Edit, Copy, ExternalLink, Download, ArrowLeft, MoreHorizontal, FileCode2, ShieldOff, Send, Ban, Trash2, CheckCircle, Upload, Check, Pencil, ChevronDown, Mail } from "lucide-svelte";
   import { enhance } from "$app/forms";
   import { page } from "$app/state";
   import type { SubmitFunction } from "@sveltejs/kit";
@@ -37,6 +37,28 @@
   let canDeleteInvoice = $derived(canDelete && Boolean(invoice && (invoice.status === "draft" || invoice.status === "voided" || (allowProtectedInvoiceChanges && invoice.status !== "voided"))));
 
   let paidPaymentMethod = $state("");
+  let emailSending = $state(false);
+  let emailDialog: HTMLDialogElement;
+
+  let emailEnabled = $derived(Boolean(data.emailEnabled));
+  let canExport = $derived(hasPermission(user, "invoices", "export"));
+
+  let defaultEmailSubject = $derived(
+    invoice ? `Invoice #${invoice.invoiceNumber || invoice.id}` : "Invoice",
+  );
+  let defaultEmailTo = $derived(
+    invoice?.customer?.email ?? "",
+  );
+
+  $effect(() => {
+    if ((form as any)?.emailSent) {
+      emailDialog?.close();
+    }
+  });
+
+  function openEmailModal() {
+    emailDialog?.showModal();
+  }
 
   function fmtDate(d?: string | Date) {
     if (!d) return "";
@@ -83,11 +105,116 @@
   }
 </script>
 
+<!-- Send via Email dialog -->
+<dialog bind:this={emailDialog} class="modal">
+  <div class="modal-box max-w-lg">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">✕</button>
+    </form>
+    <h3 class="mb-4 text-lg font-semibold">{t("Send via Email")}</h3>
+
+      {#if (form as any)?.emailError}
+        <div class="alert alert-error mb-4 text-sm">
+          <span>{(form as any).emailError}</span>
+        </div>
+      {/if}
+
+      <form
+        method="post"
+        use:enhance={() => {
+          emailSending = true;
+          return async ({ result, update }) => {
+            await update({ reset: false });
+            emailSending = false;
+            if (result.type === "success") emailDialog?.close();
+          };
+        }}
+      >
+        <input type="hidden" name="intent" value="send-email" />
+
+        <div class="form-control mb-3">
+          <label class="label pb-1" for="emailTo">
+            <span class="label-text font-medium">{t("To")}</span>
+            <span class="label-text-alt opacity-60">{t("Separate multiple with commas")}</span>
+          </label>
+          <input
+            id="emailTo"
+            type="text"
+            name="emailTo"
+            class="input input-bordered w-full"
+            value={defaultEmailTo}
+            placeholder="customer@example.com, other@example.com"
+            disabled={emailSending}
+            required
+          />
+        </div>
+
+        <div class="form-control mb-3">
+          <label class="label pb-1" for="emailSubject">
+            <span class="label-text font-medium">{t("Subject")}</span>
+          </label>
+          <input
+            id="emailSubject"
+            type="text"
+            name="emailSubject"
+            class="input input-bordered w-full"
+            value={defaultEmailSubject}
+            disabled={emailSending}
+            required
+          />
+        </div>
+
+        <div class="form-control mb-4">
+          <label class="label pb-1" for="emailMessage">
+            <span class="label-text font-medium">{t("Message")}</span>
+            <span class="label-text-alt opacity-60">{t("Optional")}</span>
+          </label>
+          <textarea
+            id="emailMessage"
+            name="emailMessage"
+            class="textarea textarea-bordered w-full"
+            rows="4"
+            placeholder={t("Add a personal note...")}
+            disabled={emailSending}
+          ></textarea>
+        </div>
+
+        <div class="text-base-content/60 mb-4 flex items-center gap-2 text-sm">
+          <FileText size={14} />
+          <span>{t("The invoice PDF will be attached automatically.")}</span>
+        </div>
+
+        <div class="modal-action mt-0">
+          <button type="button" class="btn btn-ghost" disabled={emailSending} onclick={() => emailDialog?.close()}>{t("Cancel")}</button>
+          <button type="submit" class="btn btn-primary" disabled={emailSending}>
+            {#if emailSending}
+              <span class="loading loading-spinner loading-sm"></span>
+            {:else}
+              <Mail size={16} />
+            {/if}
+            {t("Send")}
+          </button>
+        </div>
+      </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 <div class="mb-6">
   {#if form?.error}
     <div class="alert alert-error mb-4 text-sm shadow sm:text-base">
       <div class="flex-1 overflow-hidden">
         <div class="font-medium">{form.error}</div>
+      </div>
+    </div>
+  {/if}
+
+  {#if (form as any)?.emailSent}
+    <div class="alert alert-success mb-4 text-sm shadow sm:text-base">
+      <CheckCircle size={18} />
+      <div class="flex-1">
+        <div class="font-medium">{t("Invoice sent successfully")}</div>
+        <div class="opacity-80">{t("Sent to")} {(form as any).emailRecipients?.join(", ")}</div>
       </div>
     </div>
   {/if}
@@ -247,6 +374,13 @@
               </div>
             </div>
           </div>
+        {/if}
+
+        {#if emailEnabled && canExport && invoice.status !== "voided"}
+          <button type="button" class="btn btn-sm" onclick={openEmailModal}>
+            <Mail size={16} />
+            <span class="hidden sm:inline">{t("Send via Email")}</span>
+          </button>
         {/if}
 
         <div class="dropdown dropdown-end">

@@ -8,6 +8,7 @@
   let t = getContext("i18n") as (key: string, params?: Record<string, string>) => string;
 
   let isLoading = $state(false);
+  let oidcLoading = $state(false);
 </script>
 
 <div class="hero bg-base-200 min-h-[80vh]">
@@ -27,6 +28,38 @@
               Password: <span class="font-medium">demo</span>
             </span>
           </div>
+        {/if}
+
+        {#if page.data.oidcError}
+          <div class="alert alert-error mb-3">
+            <span>{page.data.oidcError}</span>
+          </div>
+        {/if}
+
+        {#if page.data.oidcEnabled && !form?.twoFactorRequired}
+          <form
+            method="POST"
+            action="?/oidcLogin"
+            use:enhance={() => {
+              oidcLoading = true;
+              return async ({ update }) => {
+                await update();
+                oidcLoading = false;
+              };
+            }}
+          >
+            <button
+              class="btn btn-outline w-full mb-4"
+              type="submit"
+              disabled={oidcLoading || isLoading}
+            >
+              {#if oidcLoading}
+                <span class="loading loading-spinner"></span>
+              {/if}
+              {t("Login with SSO")}
+            </button>
+          </form>
+          <div class="divider">{t("or")}</div>
         {/if}
 
         <form

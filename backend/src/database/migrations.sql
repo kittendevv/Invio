@@ -221,6 +221,9 @@ CREATE TABLE IF NOT EXISTS user_permissions (
   UNIQUE(user_id, resource, action)
 );
 
+ALTER TABLE users ADD COLUMN oidc_subject TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_subject ON users(oidc_subject) WHERE oidc_subject IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
 CREATE INDEX IF NOT EXISTS idx_user_permissions_user ON user_permissions(user_id);

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="{{locale}}">
+<head>
+  <meta charset="UTF-8">
+  <title>{{labels.invoiceTitle}} {{invoiceNumber}}</title>
+  <style>
+    :root {
+      --accent:       {{highlightColor || "#4f46e5"}};
+      --accent-light: {{highlightColorLight || "#ede9fe"}};
+      --ink:          #0f172a;
+      --ink-2:        #475569;
+      --ink-3:        #94a3b8;
+      --rule:         #e2e8f0;
+      --surface:      #f8fafc;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: A4; margin: 0; }
+
+    body {
+      font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    /* ── Accent bar ─────────────────────────────────── */
+    .top-bar { height: 5px; background: var(--accent); }
+
+    /* ── Page wrapper ───────────────────────────────── */
+    .wrap { padding: 11mm 14mm 10mm; }
+
+    /* ── Header ─────────────────────────────────────── */
+    .hd { display: table; width: 100%; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+    .hd-company { display: table-cell; vertical-align: top; width: 55%; }
+    .hd-meta    { display: table-cell; vertical-align: top; text-align: right; }
+
+    .logo { display: block; max-height: 40px; max-width: 160px; margin-bottom: 9px; object-fit: contain; }
+
+    .co-name { font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 4px; letter-spacing: -0.01em; }
+    .co-detail { color: var(--ink-2); font-size: 10px; line-height: 1.65; }
+    .co-detail span { display: block; }
+
+    .inv-word {
+      font-size: 30px;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .inv-kv { display: table; border-spacing: 0 2px; margin-left: auto; }
+    .inv-kv-row { display: table-row; }
+    .inv-k {
+      display: table-cell;
+      text-align: right;
+      padding-right: 10px;
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-3);
+      white-space: nowrap;
+    }
+    .inv-v {
+      display: table-cell;
+      text-align: right;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .status-pill {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 3px 11px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+
+    /* ── Addresses ──────────────────────────────────── */
+    .addr-row { display: table; width: 100%; margin-bottom: 20px; }
+    .addr-cell { display: table-cell; vertical-align: top; width: 50%; }
+
+    .addr-cap {
+      font-size: 8.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--accent);
+      margin-bottom: 5px;
+    }
+    .addr-name { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+    .addr-body { color: var(--ink-2); font-size: 10px; line-height: 1.7; }
+    .addr-body span { display: block; }
+
+    /* ── Items table ────────────────────────────────── */
+    .items { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+
+    .items thead tr { border-bottom: 2.5px solid var(--accent); }
+    .items th {
+      padding: 5px 8px;
+      text-align: left;
+      font-size: 8.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--accent);
+    }
+    .items th.r { text-align: right; }
+
+    .items tbody tr { border-bottom: 1px solid var(--rule); }
+    .items tbody tr:last-child { border-bottom: none; }
+    .items td { padding: 8px 8px; vertical-align: top; }
+
+    .desc-main { font-weight: 600; font-size: 11px; color: var(--ink); }
+    .desc-note { font-size: 9.5px; color: var(--ink-3); margin-top: 2px; font-style: italic; }
+    .r { text-align: right; }
+    .mono { font-family: "Menlo", "Monaco", "Consolas", monospace; font-size: 10.5px; }
+
+    /* ── Totals ─────────────────────────────────────── */
+    .totals-wrap { display: table; width: 100%; margin-bottom: 20px; }
+    .totals-inner { display: table-cell; vertical-align: top; text-align: right; width: 50%; }
+    .totals-box { display: inline-block; min-width: 240px; text-align: left; }
+
+    .t-row { display: table; width: 100%; border-collapse: collapse; border-bottom: 1px solid var(--rule); }
+    .t-row:last-child { border-bottom: none; border-top: 2px solid var(--accent); margin-top: 3px; }
+    .t-row-inner { display: table-row; }
+    .t-lbl { display: table-cell; padding: 5px 12px 5px 0; font-size: 10.5px; color: var(--ink-2); white-space: nowrap; }
+    .t-val { display: table-cell; padding: 5px 0; font-size: 10.5px; font-weight: 600; font-family: "Menlo","Monaco","Consolas",monospace; text-align: right; color: var(--ink); white-space: nowrap; }
+    .t-row.grand .t-lbl { font-size: 13px; font-weight: 800; color: var(--ink); padding-top: 8px; }
+    .t-row.grand .t-val { font-size: 18px; font-weight: 900; color: var(--accent); padding-top: 8px; }
+
+    .tax-tbl { width: 100%; border-collapse: collapse; font-size: 9.5px; margin-top: 3px; }
+    .tax-tbl th { text-align: left; color: var(--ink-3); font-weight: 600; padding: 2px 0; }
+    .tax-tbl th:not(:first-child), .tax-tbl td:not(:first-child) { text-align: right; }
+    .tax-tbl td { color: var(--ink-2); padding: 2px 0; }
+
+    /* ── Notes ──────────────────────────────────────── */
+    .notes-wrap { margin-bottom: 18px; }
+    .sec-cap {
+      font-size: 8.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.09em; color: var(--accent); margin-bottom: 6px;
+    }
+    .notes-body {
+      background: var(--surface);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 4px 4px 0;
+      padding: 9px 12px;
+      color: var(--ink-2);
+      font-size: 10px;
+      line-height: 1.65;
+    }
+
+    /* ── Footer ─────────────────────────────────────── */
+    .footer { border-top: 1px solid var(--rule); padding-top: 14px; display: table; width: 100%; }
+    .ft-col { display: table-cell; vertical-align: top; padding-right: 24px; }
+    .ft-cap {
+      font-size: 8.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.09em; color: var(--accent); margin-bottom: 5px;
+    }
+    .ft-val { color: var(--ink-2); font-size: 10px; line-height: 1.65; white-space: pre-line; }
+
+    @media print {
+      @page { size: A4; margin: 0; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      tr, td, th { page-break-inside: avoid !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-bar"></div>
+
+<div class="wrap">
+
+  <!-- ── Header ──────────────────────────────────────── -->
+  <div class="hd">
+    <div class="hd-company">
+      {{#logoUrl}}<img class="logo" src="{{logoUrl}}" alt="{{companyName}}">{{/logoUrl}}
+      <div class="co-name">{{companyName}}</div>
+      <div class="co-detail">
+        {{#companyAddress}}<span>{{{companyAddress}}}</span>{{/companyAddress}}
+        {{#companyPostalCity}}<span>{{companyPostalCity}}</span>{{/companyPostalCity}}
+        {{#companyEmail}}<span>{{companyEmail}}</span>{{/companyEmail}}
+        {{#companyPhone}}<span>{{companyPhone}}</span>{{/companyPhone}}
+        {{#companyTaxId}}<span>{{labels.taxIdLabel}}: {{companyTaxId}}</span>{{/companyTaxId}}
+      </div>
+    </div>
+
+    <div class="hd-meta">
+      <div class="inv-word">{{labels.invoiceTitle}}</div>
+      <div class="inv-kv">
+        <div class="inv-kv-row">
+          <span class="inv-k">{{labels.invoiceNumberShortLabel}}</span>
+          <span class="inv-v">{{invoiceNumber}}</span>
+        </div>
+        <div class="inv-kv-row">
+          <span class="inv-k">{{labels.invoiceDateLabel}}</span>
+          <span class="inv-v">{{issueDate}}</span>
+        </div>
+        {{#dueDate}}
+        <div class="inv-kv-row">
+          <span class="inv-k">{{labels.dueDateLabel}}</span>
+          <span class="inv-v">{{dueDate}}</span>
+        </div>
+        {{/dueDate}}
+      </div>
+      <div><span class="status-pill">{{status}}</span></div>
+    </div>
+  </div>
+
+  <!-- ── Bill To ──────────────────────────────────────── -->
+  <div class="addr-row">
+    <div class="addr-cell">
+      <div class="addr-cap">{{labels.billToHeading}}</div>
+      <div class="addr-name">{{customerName}}</div>
+      <div class="addr-body">
+        {{#customerContactName}}<span>{{customerContactName}}</span>{{/customerContactName}}
+        {{#customerEmail}}<span>{{customerEmail}}</span>{{/customerEmail}}
+        {{#customerPhone}}<span>{{customerPhone}}</span>{{/customerPhone}}
+        {{#customerAddress}}<span>{{{customerAddress}}}</span>{{/customerAddress}}
+        {{#customerPostalCity}}<span>{{customerPostalCity}}</span>{{/customerPostalCity}}
+        {{#customerCountryCode}}<span>{{customerCountryCode}}</span>{{/customerCountryCode}}
+        {{#customerTaxId}}<span>{{labels.taxIdLabel}}: {{customerTaxId}}</span>{{/customerTaxId}}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Line items ───────────────────────────────────── -->
+  <table class="items">
+    <thead>
+      <tr>
+        <th>{{labels.itemHeaderDescription}}</th>
+        <th class="r">{{labels.itemHeaderQuantityShort}}</th>
+        {{#hasItemUnits}}<th class="r">{{labels.itemHeaderUnit}}</th>{{/hasItemUnits}}
+        <th class="r">{{labels.itemHeaderUnitPrice}}</th>
+        <th class="r">{{labels.itemHeaderAmount}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#items}}
+      <tr>
+        <td>
+          <div class="desc-main">{{description}}</div>
+          {{#notes}}<div class="desc-note">{{notes}}</div>{{/notes}}
+        </td>
+        <td class="r mono">{{quantity}}</td>
+        {{#hasItemUnits}}<td class="r">{{unit}}</td>{{/hasItemUnits}}
+        <td class="r mono">{{unitPrice}}</td>
+        <td class="r mono">{{lineTotal}}</td>
+      </tr>
+      {{/items}}
+    </tbody>
+  </table>
+
+  <!-- ── Totals ───────────────────────────────────────── -->
+  <div class="totals-wrap">
+    <div style="display:table-cell; width:50%;"></div>
+    <div class="totals-inner">
+      <div class="totals-box">
+        <div class="t-row">
+          <div class="t-row-inner">
+            <span class="t-lbl">{{labels.subtotalLabel}}</span>
+            <span class="t-val">{{subtotal}}</span>
+          </div>
+        </div>
+        {{#hasDiscount}}
+        <div class="t-row">
+          <div class="t-row-inner">
+            <span class="t-lbl">{{labels.discountLabel}}{{#discountPercentage}} ({{discountPercentage}}%){{/discountPercentage}}</span>
+            <span class="t-val">−{{discountAmount}}</span>
+          </div>
+        </div>
+        {{/hasDiscount}}
+        {{#hasTax}}
+        <div class="t-row">
+          <div class="t-row-inner">
+            <span class="t-lbl">{{labels.taxLabel}} ({{taxRate}}%)</span>
+            <span class="t-val">{{taxAmount}}</span>
+          </div>
+        </div>
+        {{/hasTax}}
+        {{#hasTaxSummary}}
+        <div class="t-row" style="display:block; padding: 5px 0;">
+          <div style="font-size:9px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">{{labels.taxSummaryHeading}}</div>
+          <table class="tax-tbl">
+            <thead><tr>
+              <th>{{labels.taxLabel}}</th>
+              <th>{{labels.taxableLabel}}</th>
+              <th>{{labels.taxAmountLabel}}</th>
+            </tr></thead>
+            <tbody>
+              {{#taxSummary}}<tr>
+                <td>{{label}}</td><td>{{taxable}}</td><td>{{amount}}</td>
+              </tr>{{/taxSummary}}
+            </tbody>
+          </table>
+        </div>
+        {{/hasTaxSummary}}
+        <div class="t-row grand">
+          <div class="t-row-inner">
+            <span class="t-lbl">{{labels.totalLabel}}</span>
+            <span class="t-val">{{total}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Notes ────────────────────────────────────────── -->
+  {{#notes}}
+  <div class="notes-wrap">
+    <div class="sec-cap">{{labels.notesHeading}}</div>
+    <div class="notes-body">{{notes}}</div>
+  </div>
+  {{/notes}}
+
+  <!-- ── Footer ───────────────────────────────────────── -->
+  <div class="footer">
+    {{#paymentTerms}}
+    <div class="ft-col">
+      <div class="ft-cap">{{labels.paymentTermsLabel}}</div>
+      <div class="ft-val">{{paymentTerms}}</div>
+    </div>
+    {{/paymentTerms}}
+    {{#paymentMethods}}
+    <div class="ft-col">
+      <div class="ft-cap">{{labels.paymentMethodsLabel}}</div>
+      <div class="ft-val">{{paymentMethods}}</div>
+    </div>
+    {{/paymentMethods}}
+    {{#bankAccount}}
+    <div class="ft-col">
+      <div class="ft-cap">{{labels.bankAccountLabel}}</div>
+      <div class="ft-val">{{bankAccount}}</div>
+    </div>
+    {{/bankAccount}}
+  </div>
+
+</div><!-- /wrap -->
+</body>
+</html>

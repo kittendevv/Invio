@@ -2,6 +2,7 @@
   import { getContext, onMount, untrack } from "svelte";
   import { Plus, GripVertical } from "lucide-svelte";
   import { goto } from "$app/navigation";
+  import { generateId } from "$lib/utils/id";
 
   let { data, invoice = null, formId = "invoice-editor-form" } = $props();
   let initInvoice = untrack(() => invoice);
@@ -32,13 +33,13 @@
     initInvoice?.items?.length
       ? initInvoice.items.map((i: any) => ({
           ...i,
-          id: crypto.randomUUID(),
+          id: generateId(),
           unit: i.unit || "",
           productId: i.productId || "",
         }))
       : [
           {
-            id: crypto.randomUUID(),
+            id: generateId(),
             productId: "",
             description: "",
             quantity: 1,
@@ -56,7 +57,7 @@
 
   function addItem() {
     items.push({
-      id: crypto.randomUUID(),
+      id: generateId(),
       productId: "",
       description: "",
       quantity: 1,
