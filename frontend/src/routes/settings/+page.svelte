@@ -525,6 +525,7 @@
                 <option value="nl">{t("Nederlands")}</option>
                 <option value="de">{t("Deutsch")}</option>
                 <option value="tr">{t("Türkçe")}</option>
+                <option value="es-ar">{t("Español (Argentina)")}</option>
               </select>
             </label>
             <label class="form-control"
