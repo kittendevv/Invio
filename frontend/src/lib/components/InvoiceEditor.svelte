@@ -55,7 +55,17 @@
         ],
   );
 
-  let customers = $derived(data.customers || []);
+  // The API returns customers in creation order; sorting by name keeps the
+  // dropdown scannable once the list grows (locale-aware, so accented names
+  // land next to their base letter instead of after Z).
+  let customers = $derived(
+    [...(data.customers || [])].sort((a: any, b: any) =>
+      String(a?.name || "").localeCompare(String(b?.name || ""), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }),
+    ),
+  );
   let products = $derived(data.products || []);
   let taxDefinitions = $derived(data.taxDefinitions || []);
 
