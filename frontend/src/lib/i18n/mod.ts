@@ -5,6 +5,7 @@ import ptMessages from "./locales/pt-br.json" with { type: "json" };
 import trMessages from "./locales/tr.json" with { type: "json" };
 import esMessages from "./locales/es-co.json" with { type: "json" };
 import esMxMessages from "./locales/es-mx.json" with { type: "json" };
+import esArMessages from "./locales/es-ar.json" with { type: "json" };
 
 export type UiMessages = Record<string, string>;
 export type TranslateParams = Record<string, string | number>;
@@ -17,6 +18,7 @@ const catalogs: Record<string, UiMessages> = {
   tr: trMessages as UiMessages,
   es: esMessages as UiMessages,
   "es-mx": esMxMessages as UiMessages,
+  "es-ar": esArMessages as UiMessages,
 };
 
 const DEFAULT_LOCALE = "en";

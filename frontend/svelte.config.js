@@ -6,6 +6,9 @@ const config = {
     adapter: adapter({
       out: "build",
     }),
+    csrf: {
+      trustedOrigins: ["*"],
+    },
   },
   vitePlugin: {
     dynamicCompileOptions: ({ filename }) =>
