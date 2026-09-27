@@ -4,6 +4,7 @@ import deRaw from "./locales/de.json" with { type: "json" };
 import ptBrRaw from "./locales/pt-br.json" with { type: "json" };
 import trRaw from "./locales/tr.json" with { type: "json" };
 import esCoRaw from "./locales/es-co.json" with { type: "json" };
+import esMxRaw from "./locales/es-mx.json" with { type: "json" };
 import esArRaw from "./locales/es-ar.json" with { type: "json" };
 
 export type InvoiceLabels = {
@@ -109,6 +110,7 @@ const catalogs: Record<string, InvoiceLabels> = Object.freeze({
   pt: coerceLabels("pt", ptBrRaw), // alias for pt-br
   tr: coerceLabels("tr", trRaw),
   "es-co": coerceLabels("es-co", esCoRaw),
+  "es-mx": coerceLabels("es-mx", esMxRaw),
   es: coerceLabels("es", esCoRaw), // alias for es-co
   "es-ar": coerceLabels("es-ar", esArRaw),
 });

@@ -526,6 +526,7 @@
                 <option value="de">{t("Deutsch")}</option>
                 <option value="es">{t("Español")}</option>
                 <option value="tr">{t("Türkçe")}</option>
+                <option value="es-mx">{t("Español (México)")}</option>
                 <option value="es-ar">{t("Español (Argentina)")}</option>
               </select>
             </label>
