@@ -5,6 +5,7 @@ import {
   getNextInvoiceNumber,
 } from "../database/init.ts";
 import { getSetting } from "./settings.ts";
+import { getProductById } from "./products.ts";
 import {
   CreateInvoiceRequest,
   Invoice,
@@ -228,6 +229,36 @@ export function getLatestPaidPaymentMethods(
   return result;
 }
 
+type ProductSnapshot = Pick<
+  InvoiceItem,
+  "hsCode" | "countryOfOrigin" | "lengthMm" | "widthMm" | "heightMm" | "weightG"
+>;
+
+/** Current shipping/customs values of the item's product, copied onto the item when it is saved. */
+const snapshotProduct = (productId?: string): ProductSnapshot => {
+  const p = productId ? getProductById(productId) : null;
+  return {
+    hsCode: p?.hsCode ?? null,
+    countryOfOrigin: p?.countryOfOrigin ?? null,
+    lengthMm: p?.lengthMm ?? null,
+    widthMm: p?.widthMm ?? null,
+    heightMm: p?.heightMm ?? null,
+    weightG: p?.weightG ?? null,
+  };
+};
+
+const snapshotParams = (s: ProductSnapshot) => [
+  s.hsCode,
+  s.countryOfOrigin,
+  s.lengthMm,
+  s.widthMm,
+  s.heightMm,
+  s.weightG,
+];
+
+const toNullableNumber = (v: unknown): number | null =>
+  v === null || v === undefined ? null : Number(v);
+
 export const createInvoice = (
   data: CreateInvoiceRequest,
 ): InvoiceWithDetails => {
@@ -395,6 +426,7 @@ export const createInvoice = (
     const itemId = generateUUID();
     const lineTotal = item.quantity * item.unitPrice;
     const unit = typeof item.unit === "string" ? item.unit.trim() : "";
+    const snapshot = snapshotProduct(item.productId);
 
     const invoiceItem: InvoiceItem = {
       id: itemId,
@@ -407,12 +439,14 @@ export const createInvoice = (
       lineTotal,
       notes: item.notes,
       sortOrder: i,
+      ...snapshot,
     };
 
     db.query(
       `INSERT INTO invoice_items (
-        id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order,
+        hs_code, country_of_origin, length_mm, width_mm, height_mm, weight_g
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         itemId,
         invoiceId,
@@ -424,6 +458,7 @@ export const createInvoice = (
         lineTotal,
         item.notes,
         i,
+        ...snapshotParams(snapshot),
       ],
     );
 
@@ -567,7 +602,8 @@ export const getInvoiceById = (id: string): InvoiceWithDetails | null => {
   // Get items
   const itemsResult = db.query(
     `
-    SELECT id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order
+    SELECT id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order,
+           hs_code, country_of_origin, length_mm, width_mm, height_mm, weight_g
     FROM invoice_items
     WHERE invoice_id = ?
     ORDER BY sort_order
@@ -586,6 +622,12 @@ export const getInvoiceById = (id: string): InvoiceWithDetails | null => {
     lineTotal: row[7] as number,
     notes: row[8] as string,
     sortOrder: row[9] as number,
+    hsCode: row[10] ? String(row[10]) : null,
+    countryOfOrigin: row[11] ? String(row[11]) : null,
+    lengthMm: toNullableNumber(row[12]),
+    widthMm: toNullableNumber(row[13]),
+    heightMm: toNullableNumber(row[14]),
+    weightG: toNullableNumber(row[15]),
   }));
 
   // Attach per-item taxes
@@ -957,18 +999,33 @@ export const updateInvoice = async (
       db.query("DELETE FROM invoice_taxes WHERE invoice_id = ?", [id]);
       db.query("DELETE FROM invoice_items WHERE invoice_id = ?", [id]);
 
+      // Drafts take the products' current values; issued invoices (protection
+      // override) keep the snapshot taken when they were last saved as draft.
+      const previousSnapshots = new Map<string, ProductSnapshot>();
+      if (isIssued) {
+        for (const prev of existing.items) {
+          if (prev.productId && !previousSnapshots.has(prev.productId)) {
+            previousSnapshots.set(prev.productId, prev);
+          }
+        }
+      }
+
       // Insert new items
       for (let i = 0; i < data.items.length; i++) {
         const item = data.items[i];
         const itemId = generateUUID();
         const lineTotal = item.quantity * item.unitPrice;
         const unit = typeof item.unit === "string" ? item.unit.trim() : "";
+        const snapshot =
+          (item.productId && previousSnapshots.get(item.productId)) ||
+          snapshotProduct(item.productId);
 
         db.query(
           `
         INSERT INTO invoice_items (
-          id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order,
+          hs_code, country_of_origin, length_mm, width_mm, height_mm, weight_g
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
           [
             itemId,
@@ -981,6 +1038,7 @@ export const updateInvoice = async (
             lineTotal,
             item.notes,
             i,
+            ...snapshotParams(snapshot),
           ],
         );
 
@@ -1185,11 +1243,16 @@ export const duplicateInvoice = async (
     // Copy items
     for (const [idx, it] of items.entries()) {
       const itemId = generateUUID();
+      // New draft: take current product values, keep the original's if the product is gone
+      const snapshot = it.productId && getProductById(it.productId)
+        ? snapshotProduct(it.productId)
+        : it;
       db.query(
         `
       INSERT INTO invoice_items (
-        id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, invoice_id, product_id, description, quantity, unit, unit_price, line_total, notes, sort_order,
+        hs_code, country_of_origin, length_mm, width_mm, height_mm, weight_g
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
         [
           itemId,
@@ -1202,6 +1265,7 @@ export const duplicateInvoice = async (
           it.lineTotal,
           it.notes || null,
           idx,
+          ...snapshotParams(snapshot),
         ],
       );
     }

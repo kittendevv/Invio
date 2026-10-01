@@ -52,6 +52,12 @@ export const actions: Actions = {
     const unit = String(form.get("unit") || "");
     const category = String(form.get("category") || "");
     const taxDefinitionId = String(form.get("taxDefinitionId") || "");
+    const hsCode = String(form.get("hsCode") || "");
+    const countryOfOrigin = String(form.get("countryOfOrigin") || "");
+    const num = (key: string) => {
+      const v = parseFloat(String(form.get(key) ?? ""));
+      return Number.isFinite(v) ? v : null;
+    };
 
     if (!name) {
       return fail(400, { error: "Name is required" });
@@ -67,6 +73,12 @@ export const actions: Actions = {
         unit: unit || undefined,
         category: category || undefined,
         taxDefinitionId: taxDefinitionId || undefined,
+        hsCode,
+        countryOfOrigin,
+        lengthMm: num("lengthMm"),
+        widthMm: num("widthMm"),
+        heightMm: num("heightMm"),
+        weightG: num("weightG"),
       });
     } catch (e: any) {
       if (e && typeof e === "object" && "status" in e && "location" in e)

@@ -171,7 +171,13 @@ CREATE TABLE IF NOT EXISTS products (
   tax_definition_id TEXT REFERENCES tax_definitions(id),
   is_active BOOLEAN DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  hs_code TEXT,
+  country_of_origin TEXT,
+  length_mm NUMERIC,
+  width_mm NUMERIC,
+  height_mm NUMERIC,
+  weight_g NUMERIC
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);

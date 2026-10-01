@@ -23,6 +23,12 @@
     }
   }
 
+  let dimensions = $derived(
+    [p?.lengthMm, p?.widthMm, p?.heightMm].some((v) => v != null)
+      ? `${[p.lengthMm, p.widthMm, p.heightMm].map((v) => v ?? "?").join(" × ")} mm`
+      : "-",
+  );
+
   function confirmDelete(): SubmitFunction {
     return ({ cancel }) => {
       if (!confirm(t("Are you sure you want to delete this product?"))) cancel();
@@ -108,6 +114,27 @@
           </div>
         </div>
       {/if}
+    </div>
+
+    <div class="divider text-sm opacity-70">{t("Shipping & Customs")}</div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div>
+        <div class="mb-1 text-sm opacity-70">{t("HS Code")}</div>
+        <div class="font-medium">{p.hsCode || "-"}</div>
+      </div>
+      <div>
+        <div class="mb-1 text-sm opacity-70">{t("Country of Origin")}</div>
+        <div class="font-medium">{p.countryOfOrigin || "-"}</div>
+      </div>
+      <div>
+        <div class="mb-1 text-sm opacity-70">{t("Dimensions")}</div>
+        <div class="font-medium">{dimensions}</div>
+      </div>
+      <div>
+        <div class="mb-1 text-sm opacity-70">{t("Weight")}</div>
+        <div class="font-medium">{p.weightG != null ? `${p.weightG} g` : "-"}</div>
+      </div>
     </div>
   </div>
 {/if}

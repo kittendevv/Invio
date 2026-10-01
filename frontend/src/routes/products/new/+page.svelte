@@ -103,5 +103,50 @@
         </select>
       </div>
     {/if}
+
+    <div class="divider text-sm opacity-70">{t("Shipping & Customs")}</div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="form-control w-full">
+        <label class="label pb-1" for="hsCode">
+          <span class="label-text">{t("HS Code")}</span>
+        </label>
+        <input type="text" id="hsCode" name="hsCode" maxlength="16" class="input input-sm input-bordered w-full" />
+      </div>
+
+      <div class="form-control w-full">
+        <label class="label pb-1" for="countryOfOrigin">
+          <span class="label-text">{t("Country of Origin")}</span>
+        </label>
+        <input type="text" id="countryOfOrigin" name="countryOfOrigin" maxlength="2" pattern={"[A-Za-z]{2}"} placeholder={t("Country code placeholder")} class="input input-sm input-bordered w-full uppercase" />
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div class="form-control w-full">
+        <label class="label pb-1" for="lengthMm">
+          <span class="label-text">{t("Length (mm)")}</span>
+        </label>
+        <input type="number" id="lengthMm" name="lengthMm" step="any" min="0" class="input input-sm input-bordered w-full" />
+      </div>
+      <div class="form-control w-full">
+        <label class="label pb-1" for="widthMm">
+          <span class="label-text">{t("Width (mm)")}</span>
+        </label>
+        <input type="number" id="widthMm" name="widthMm" step="any" min="0" class="input input-sm input-bordered w-full" />
+      </div>
+      <div class="form-control w-full">
+        <label class="label pb-1" for="heightMm">
+          <span class="label-text">{t("Height (mm)")}</span>
+        </label>
+        <input type="number" id="heightMm" name="heightMm" step="any" min="0" class="input input-sm input-bordered w-full" />
+      </div>
+      <div class="form-control w-full">
+        <label class="label pb-1" for="weightG">
+          <span class="label-text">{t("Weight (g)")}</span>
+        </label>
+        <input type="number" id="weightG" name="weightG" step="any" min="0" class="input input-sm input-bordered w-full" />
+      </div>
+    </div>
   </div>
 </form>
