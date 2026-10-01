@@ -28,6 +28,7 @@ export const updateSettings = (data: Record<string, string>) => {
       "companyCity",
       "companyPostalCode",
       "locale",
+      "invoiceFallbackLocale",
     ].includes(key) && String(raw).trim() === "";
 
     if (shouldClear) {

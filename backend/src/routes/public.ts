@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import { normalize, relative, resolve } from "std/path";
 import { getInvoiceByShareToken } from "../controllers/invoices.ts";
 import { getSettings } from "../controllers/settings.ts";
+import { getCustomerById } from "../controllers/customers.ts";
+import { resolveInvoiceRenderLocale } from "../i18n/translations.ts";
 import { buildInvoiceHTML, generatePDF } from "../utils/pdf.ts";
 import { generateUBLInvoiceXML } from "../utils/ubl.ts"; // legacy direct import (will be removed after deprecation window)
 import { generateInvoiceXML, listXMLProfiles } from "../utils/xmlProfiles.ts";
@@ -166,6 +168,13 @@ publicRoutes.get("/public/invoices/:share_token/pdf", async (c) => {
     const embedXml =
       String(settingsMap.embedXmlInPdf || "false").toLowerCase() === "true";
     const xmlProfileId = settingsMap.xmlProfileId || "ubl21";
+    const customer = getCustomerById(invoice.customerId);
+    const renderLocale = resolveInvoiceRenderLocale(
+      invoice.locale,
+      customer?.countryCode,
+      settingsMap.invoiceFallbackLocale,
+      settingsMap.locale,
+    );
     const pdfBuffer = await generatePDF(
       invoice,
       businessSettings,
@@ -176,7 +185,7 @@ publicRoutes.get("/public/invoices/:share_token/pdf", async (c) => {
         embedXmlProfileId: xmlProfileId,
         dateFormat: settingsMap.dateFormat,
         numberFormat: settingsMap.numberFormat,
-        locale: settingsMap.locale,
+        locale: renderLocale,
       },
     );
     // Detect embedded attachments for diagnostics
@@ -283,6 +292,13 @@ publicRoutes.get("/public/invoices/:share_token/html", async (c) => {
     selectedTemplateId = "minimalist-clean";
   }
 
+  const customer = getCustomerById(invoice.customerId);
+  const renderLocale = resolveInvoiceRenderLocale(
+    invoice.locale,
+    customer?.countryCode,
+    settingsMap.invoiceFallbackLocale,
+    settingsMap.locale,
+  );
   const html = buildInvoiceHTML(
     invoice,
     businessSettings,
@@ -290,7 +306,7 @@ publicRoutes.get("/public/invoices/:share_token/html", async (c) => {
     highlight,
     settingsMap.dateFormat,
     settingsMap.numberFormat,
-    settingsMap.locale,
+    renderLocale,
   );
   return new Response(html, {
     headers: {

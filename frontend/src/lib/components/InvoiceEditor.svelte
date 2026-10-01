@@ -29,6 +29,7 @@
     taxRate: initInvoice?.taxRate || 0,
     pricesIncludeTax: initInvoice?.pricesIncludeTax ? "true" : "false",
     roundingMode: initInvoice?.roundingMode || "line",
+    locale: initInvoice?.locale || "",
     paymentTerms: initInvoice?.paymentTerms ?? initSettings.paymentTerms ?? "",
     notes: initInvoice?.notes ?? initSettings.defaultNotes ?? "",
   });
@@ -446,6 +447,22 @@
       <select class="select select-bordered w-full" bind:value={form.roundingMode}>
         <option value="line">{t("Round per line")}</option>
         <option value="total">{t("Round on total")}</option>
+      </select>
+    </label>
+
+    <label class="form-control">
+      <div class="label">
+        <span class="label-text">{t("Invoice Language")}</span>
+      </div>
+      <select class="select select-bordered w-full" bind:value={form.locale}>
+        <option value="">{t("Automatic (from customer)")}</option>
+        <option value="en">{t("English")}</option>
+        <option value="nl">{t("Nederlands")}</option>
+        <option value="de">{t("Deutsch")}</option>
+        <option value="es">{t("Español")}</option>
+        <option value="tr">{t("Türkçe")}</option>
+        <option value="pt-br">{t("Português (Brasil)")}</option>
+        <option value="es-ar">{t("Español (Argentina)")}</option>
       </select>
     </label>
   </div>

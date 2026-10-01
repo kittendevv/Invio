@@ -69,7 +69,10 @@ import { buildInvoiceHTML, generatePDF } from "../utils/pdf.ts";
 import { isEmailConfigured, sendEmail } from "../utils/email.ts";
 import { generateUBLInvoiceXML } from "../utils/ubl.ts"; // legacy direct import
 import { generateInvoiceXML, listXMLProfiles } from "../utils/xmlProfiles.ts";
-import { availableInvoiceLocales } from "../i18n/translations.ts";
+import {
+  normalizeInvoiceLocaleSetting,
+  resolveInvoiceRenderLocale,
+} from "../i18n/translations.ts";
 
 import { resetDatabaseFromDemo } from "../database/init.ts";
 import { getNextInvoiceNumber } from "../database/init.ts";
@@ -157,41 +160,6 @@ function normalizeTaxSettingsPayload(data: Record<string, unknown>) {
   }
 }
 
-const SUPPORTED_LOCALES = new Set(availableInvoiceLocales());
-
-function deriveLocaleFromCountryCode(countryCode?: string): string | undefined {
-  if (!countryCode) return undefined;
-  const code = String(countryCode).trim().toUpperCase();
-  if (!code) return undefined;
-
-  // Keep mapping constrained to currently supported invoice locales
-  if (code === "DE" || code === "AT" || code === "CH") return "de";
-  if (code === "NL" || code === "BE") return "nl";
-  if (code === "PT" || code === "BR") return "pt-br";
-  if (code === "TR") return "tr";
-  if (code === "ES" || code === "CO") return "es-co";
-  if (["AU", "CA", "GB", "IE", "NZ", "US", "AG", "BS", "BB", "BZ", "DM", "GD", "GY", "JM", "KN", "LC", "VC", "TT"].includes(code)) return "en";
-
-  return undefined;
-}
-
-function resolveInvoiceRenderLocale(
-  invoiceLocale: string | undefined,
-  customerCountryCode: string | undefined,
-  settingsLocale: string | undefined,
-): string | undefined {
-  const fromInvoice = invoiceLocale?.trim().toLowerCase();
-  if (fromInvoice && SUPPORTED_LOCALES.has(fromInvoice)) return fromInvoice;
-
-  const fromCountry = deriveLocaleFromCountryCode(customerCountryCode);
-  if (fromCountry && SUPPORTED_LOCALES.has(fromCountry)) return fromCountry;
-
-  const fromSettings = settingsLocale?.trim().toLowerCase();
-  if (fromSettings && SUPPORTED_LOCALES.has(fromSettings)) return fromSettings;
-
-  return "en";
-}
-
 function normalizeLocaleSettingPayload(data: Record<string, unknown>) {
   if (!data) return;
 
@@ -236,22 +204,15 @@ function normalizeLocaleSettingPayload(data: Record<string, unknown>) {
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "locale")) {
-    const raw = String((data as Record<string, unknown>).locale ?? "").trim();
-    if (!raw) {
-      delete (data as Record<string, unknown>).locale;
-    } else {
-      const lower = raw.toLowerCase();
-      if (SUPPORTED_LOCALES.has(lower)) {
-        (data as Record<string, unknown>).locale = lower;
-      } else {
-        const base = lower.split("-")[0];
-        if (SUPPORTED_LOCALES.has(base)) {
-          (data as Record<string, unknown>).locale = base;
-        } else {
-          (data as Record<string, unknown>).locale = "en";
-        }
-      }
-    }
+    const normalized = normalizeInvoiceLocaleSetting(data.locale);
+    if (normalized) data.locale = normalized;
+    else delete data.locale;
+  }
+
+  // Empty value is kept so the settings controller clears the stored fallback
+  if (Object.prototype.hasOwnProperty.call(data, "invoiceFallbackLocale")) {
+    data.invoiceFallbackLocale =
+      normalizeInvoiceLocaleSetting(data.invoiceFallbackLocale) ?? "";
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "postalCityFormat")) {
@@ -904,6 +865,7 @@ adminRoutes.get("/settings", async (c) => {
     map.logo = normalizeStoredLogoReference(map.logo);
   }
   if (!map.locale) map.locale = "en";
+  if (!map.invoiceFallbackLocale) map.invoiceFallbackLocale = "";
   if (!map.dateFormat && map.date_format) map.dateFormat = map.date_format;
   if (!map.numberFormat && map.number_format) {
     map.numberFormat = map.number_format;
@@ -1044,6 +1006,7 @@ adminRoutes.get("/admin/settings", async (c) => {
     map.logo = normalizeStoredLogoReference(map.logo);
   }
   if (!map.locale) map.locale = "en";
+  if (!map.invoiceFallbackLocale) map.invoiceFallbackLocale = "";
   if (!map.dateFormat && map.date_format) map.dateFormat = map.date_format;
   if (!map.numberFormat && map.number_format) {
     map.numberFormat = map.number_format;
@@ -1507,6 +1470,7 @@ adminRoutes.get(
     const renderLocale = resolveInvoiceRenderLocale(
       invoice.locale,
       customer?.countryCode,
+      settingsMap.invoiceFallbackLocale,
       settingsMap.locale,
     );
 
@@ -1602,6 +1566,7 @@ adminRoutes.get(
       const renderLocale = resolveInvoiceRenderLocale(
         invoice.locale,
         customer?.countryCode,
+        settingsMap.invoiceFallbackLocale,
         settingsMap.locale,
       );
 
@@ -1742,6 +1707,7 @@ adminRoutes.post(
       const renderLocale = resolveInvoiceRenderLocale(
         invoice.locale,
         customer?.countryCode,
+        settingsMap.invoiceFallbackLocale,
         settingsMap.locale,
       );
       pdfBuffer = await generatePDF(

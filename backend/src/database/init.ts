@@ -201,6 +201,7 @@ function ensureInvoiceColumns(database: DB): void {
     "rounding_mode",
     "TEXT DEFAULT 'line'",
   );
+  addColumnIfMissing(database, "invoices", "locale", "TEXT");
 }
 
 function ensureInvoiceItemColumns(database: DB): void {

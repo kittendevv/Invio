@@ -255,6 +255,9 @@ export interface CreateInvoiceRequest {
   pricesIncludeTax?: boolean;
   roundingMode?: string; // 'line' | 'total'
 
+  // Invoice language; empty/null resolves from customer country and settings
+  locale?: string | null;
+
   // Payment and notes
   paymentTerms?: string;
   notes?: string;

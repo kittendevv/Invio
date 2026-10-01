@@ -21,6 +21,7 @@
     dateFormat: "YYYY-MM-DD",
     numberFormat: "comma",
     postalCityFormat: "auto",
+    invoiceFallbackLocale: "",
     ...initialSettings,
     allowProtectedInvoiceChanges: asBool((initialSettings as Record<string, unknown>).allowProtectedInvoiceChanges),
   } as Record<string, any>);
@@ -530,6 +531,24 @@
                 <option value="pt-br">{t("Português (Brasil)")}</option>
                 <option value="es-ar">{t("Español (Argentina)")}</option>
               </select>
+            </label>
+            <label class="form-control"
+              ><div class="label">
+                <span class="label-text">{t("Invoice Fallback Language")}</span>
+              </div>
+              <select name="invoiceFallbackLocale" class="select select-bordered w-full" bind:value={settings.invoiceFallbackLocale} disabled={!canUpdateSettings}>
+                <option value="">{t("Same as interface language")}</option>
+                <option value="en">{t("English")}</option>
+                <option value="nl">{t("Nederlands")}</option>
+                <option value="de">{t("Deutsch")}</option>
+                <option value="es">{t("Español")}</option>
+                <option value="tr">{t("Türkçe")}</option>
+                <option value="pt-br">{t("Português (Brasil)")}</option>
+                <option value="es-ar">{t("Español (Argentina)")}</option>
+              </select>
+              <div class="label">
+                <span class="label-text-alt opacity-70">{t("Used for invoices when the customer's language is not available.")}</span>
+              </div>
             </label>
             <label class="form-control"
               ><div class="label">
