@@ -5,6 +5,7 @@ import ptBrRaw from "./locales/pt-br.json" with { type: "json" };
 import trRaw from "./locales/tr.json" with { type: "json" };
 import esCoRaw from "./locales/es-co.json" with { type: "json" };
 import esArRaw from "./locales/es-ar.json" with { type: "json" };
+import bgRaw from "./locales/bg.json" with { type: "json" };
 
 export type InvoiceLabels = {
   invoiceTitle: string;
@@ -48,48 +49,49 @@ export type InvoiceLabels = {
 
 const REQUIRED_KEYS = [
   "invoiceTitle",
-  "invoiceNumberLabel",
-  "invoiceNumberShortLabel",
-  "invoiceDateLabel",
-  "dateLabel",
-  "dueDateLabel",
-  "dueShortLabel",
-  "referenceLabel",
-  "billToHeading",
-  "itemsHeading",
-  "itemHeaderDescription",
-  "itemHeaderQuantity",
-  "itemHeaderQuantityShort",
-  "itemHeaderUnit",
-  "itemHeaderUnitPrice",
-  "itemHeaderUnitPriceShort",
-  "itemHeaderAmount",
-  "itemHeaderTax",
-  "summaryHeading",
-  "subtotalLabel",
-  "discountLabel",
-  "taxLabel",
-  "totalLabel",
-  "statusLabel",
-  "taxSummaryHeading",
-  "taxableLabel",
-  "taxAmountLabel",
-  "taxIdLabel",
-  "outstandingBalanceLabel",
-  "paymentInformationHeading",
-  "paymentMethodsLabel",
-  "paymentMethodsPrefix",
-  "bankAccountLabel",
-  "bankAccountPrefix",
-  "paymentTermsLabel",
-  "notesHeading",
-  "thankYouNote",
+"invoiceNumberLabel",
+"invoiceNumberShortLabel",
+"invoiceDateLabel",
+"dateLabel",
+"dueDateLabel",
+"dueShortLabel",
+"referenceLabel",
+"billToHeading",
+"itemsHeading",
+"itemHeaderDescription",
+"itemHeaderQuantity",
+"itemHeaderQuantityShort",
+"itemHeaderUnit",
+"itemHeaderUnitPrice",
+"itemHeaderUnitPriceShort",
+"itemHeaderAmount",
+"itemHeaderTax",
+"summaryHeading",
+"subtotalLabel",
+"discountLabel",
+"taxLabel",
+"totalLabel",
+"statusLabel",
+"taxSummaryHeading",
+"taxableLabel",
+"taxAmountLabel",
+"taxIdLabel",
+"outstandingBalanceLabel",
+"paymentInformationHeading",
+"paymentMethodsLabel",
+"paymentMethodsPrefix",
+"bankAccountLabel",
+"bankAccountPrefix",
+"paymentTermsLabel",
+"notesHeading",
+"thankYouNote",
 ] as const;
 
 function coerceLabels(locale: string, raw: unknown): InvoiceLabels {
   if (!raw || typeof raw !== "object") {
     throw new Error(`Invalid translation data for locale '${locale}'`);
   }
+
   const record = raw as Record<string, unknown>;
   for (const key of REQUIRED_KEYS) {
     if (typeof record[key] !== "string") {
@@ -103,14 +105,15 @@ function coerceLabels(locale: string, raw: unknown): InvoiceLabels {
 
 const catalogs: Record<string, InvoiceLabels> = Object.freeze({
   en: coerceLabels("en", enRaw),
-  nl: coerceLabels("nl", nlRaw),
-  de: coerceLabels("de", deRaw),
-  "pt-br": coerceLabels("pt-br", ptBrRaw),
-  pt: coerceLabels("pt", ptBrRaw), // alias for pt-br
-  tr: coerceLabels("tr", trRaw),
-  "es-co": coerceLabels("es-co", esCoRaw),
-  es: coerceLabels("es", esCoRaw), // alias for es-co
-  "es-ar": coerceLabels("es-ar", esArRaw),
+                                                              nl: coerceLabels("nl", nlRaw),
+                                                              de: coerceLabels("de", deRaw),
+                                                              "pt-br": coerceLabels("pt-br", ptBrRaw),
+                                                              pt: coerceLabels("pt", ptBrRaw), // alias for pt-br
+                                                              tr: coerceLabels("tr", trRaw),
+                                                              "es-co": coerceLabels("es-co", esCoRaw),
+                                                              es: coerceLabels("es", esCoRaw), // alias for es-co
+                                                              "es-ar": coerceLabels("es-ar", esArRaw),
+                                                              bg: coerceLabels("bg", bgRaw),
 });
 
 function normalizeLocale(locale?: string): string {
