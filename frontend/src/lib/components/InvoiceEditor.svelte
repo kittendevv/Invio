@@ -3,6 +3,7 @@
   import { Plus, GripVertical } from "lucide-svelte";
   import { goto } from "$app/navigation";
   import { generateId } from "$lib/utils/id";
+  import ProductCombobox from "$lib/components/ProductCombobox.svelte";
 
   let { data, invoice = null, formId = "invoice-editor-form" } = $props();
   let initInvoice = untrack(() => invoice);
@@ -363,12 +364,7 @@
           </button>
 
           {#if products.length > 0}
-            <select class="select select-bordered w-44 max-w-xs shrink-0" bind:value={item.productId} onchange={(e) => applyProductSelection(item, (e.currentTarget as HTMLSelectElement).value)}>
-              <option value="">{t("Select product")}</option>
-              {#each products as p (p.id)}
-                <option value={p.id}>{p.name}{p.sku ? ` (${p.sku})` : ""}</option>
-              {/each}
-            </select>
+            <ProductCombobox id="product-{item.id}" class="w-44 max-w-xs shrink-0" {products} value={item.productId} onchange={(productId: string) => applyProductSelection(item, productId)} />
           {/if}
 
           <input class="input input-bordered w-full min-w-0" bind:value={item.description} placeholder={t("Description")} required />
