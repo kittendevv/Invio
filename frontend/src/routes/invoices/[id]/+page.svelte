@@ -19,7 +19,7 @@
 
   let isOverdue = $derived.by(() => {
     if (!invoice) return false;
-    if (invoice.status === "paid" || invoice.status === "voided") return false;
+    if (invoice.status !== "sent" && invoice.status !== "overdue") return false;
     const due = invoice.dueDate ? new Date(invoice.dueDate as string) : null;
     if (!due) return false;
     const today = new Date();
