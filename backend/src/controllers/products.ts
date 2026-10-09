@@ -19,7 +19,7 @@ const mapRowToProduct = (row: unknown[]): Product => ({
   description: (row[2] ?? undefined) as string | undefined,
   unitPrice: Number(row[3]) || 0,
   sku: (row[4] ?? undefined) as string | undefined,
-  unit: (row[5] ?? "piece") as string,
+  unit: (row[5] ?? undefined) as string | undefined,
   category: (row[6] ?? undefined) as string | undefined,
   taxDefinitionId: (row[7] ?? undefined) as string | undefined,
   isActive: Boolean(row[8]),
@@ -75,7 +75,7 @@ export const createProduct = (data: CreateProductRequest): Product => {
 
   const description = toNullable(data.description);
   const sku = toNullable(data.sku);
-  const unit = toNullable(data.unit) || "piece";
+  const unit = toNullable(data.unit);
   const category = toNullable(data.category);
   const taxDefinitionId = toNullable(data.taxDefinitionId);
   const hsCode = toNullable(data.hsCode);
@@ -115,7 +115,7 @@ export const createProduct = (data: CreateProductRequest): Product => {
     description: description ?? undefined,
     unitPrice: data.unitPrice || 0,
     sku: sku ?? undefined,
-    unit: unit,
+    unit: unit ?? undefined,
     category: category ?? undefined,
     taxDefinitionId: taxDefinitionId ?? undefined,
     hsCode: hsCode ?? undefined,
@@ -151,8 +151,8 @@ export const updateProduct = (
     data.sku !== undefined ? toNullable(data.sku) : existing.sku ?? null;
   const unit =
     data.unit !== undefined
-      ? toNullable(data.unit) || "piece"
-      : existing.unit ?? "piece";
+      ? toNullable(data.unit)
+      : existing.unit ?? null;
   const category =
     data.category !== undefined
       ? toNullable(data.category)

@@ -108,7 +108,7 @@
 
     item.description = product.name || item.description;
     item.unitPrice = Number(product.unitPrice ?? product.unit_price ?? item.unitPrice ?? 0);
-    item.unit = String(product.unit ?? item.unit ?? "");
+    item.unit = String(product.unit ?? "");
 
     if (form.taxMode === "line" && product.taxDefinitionId) {
       const taxDef = taxDefinitions.find((t: any) => t.id === product.taxDefinitionId);

@@ -69,7 +69,7 @@ export const actions: Actions = {
         description: description || undefined,
         unitPrice,
         sku: sku || undefined,
-        unit: unit || undefined,
+        unit,
         category: category || undefined,
         taxDefinitionId: taxDefinitionId || undefined,
         hsCode,
