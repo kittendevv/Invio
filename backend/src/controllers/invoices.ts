@@ -1470,9 +1470,9 @@ function applyDerivedOverdue<
   if (!inv.dueDate) return inv;
   const today = new Date();
   const dd = new Date(
-    inv.dueDate.getFullYear(),
-    inv.dueDate.getMonth(),
-    inv.dueDate.getDate(),
+    inv.dueDate.getUTCFullYear(),
+    inv.dueDate.getUTCMonth(),
+    inv.dueDate.getUTCDate(),
   );
   const td = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   if (dd < td) {
