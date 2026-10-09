@@ -3,6 +3,7 @@
   import { Plus, GripVertical } from "lucide-svelte";
   import { goto } from "$app/navigation";
   import { generateId } from "$lib/utils/id";
+  import CustomerCombobox from "$lib/components/CustomerCombobox.svelte";
 
   let { data, invoice = null, formId = "invoice-editor-form" } = $props();
   let initInvoice = untrack(() => invoice);
@@ -57,7 +58,7 @@
   );
 
   // The API returns customers in creation order; sorting by name keeps the
-  // dropdown scannable once the list grows (locale-aware, so accented names
+  // combobox list scannable once it grows (locale-aware, so accented names
   // land next to their base letter instead of after Z).
   let customers = $derived(
     [...(data.customers || [])].sort((a: any, b: any) =>
@@ -262,17 +263,12 @@
   {/if}
 
   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    <label class="form-control">
-      <div class="label">
+    <div class="form-control">
+      <label class="label" for="invoice-customer">
         <span class="label-text">{t("Customer")} <span class="text-error">*</span></span>
-      </div>
-      <select class="select select-bordered w-full" bind:value={form.customerId} required>
-        <option value="">{t("Select customer")}</option>
-        {#each customers as c (c.id)}
-          <option value={c.id}>{c.name}</option>
-        {/each}
-      </select>
-    </label>
+      </label>
+      <CustomerCombobox id="invoice-customer" {customers} bind:value={form.customerId} required />
+    </div>
 
     <label class="form-control">
       <div class="label">
