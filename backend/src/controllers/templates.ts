@@ -644,7 +644,7 @@ function assertLocalManifestShape(m: unknown): asserts m is LocalManifest {
 
 // Install a template from an uploaded .zip file (local template)
 export async function installLocalTemplateFromZip(
-  zipData: Uint8Array,
+  zipData: Uint8Array<ArrayBuffer>,
 ): Promise<Template> {
   // Create a blob from the zip data for the ZipReader
   const blob = new Blob([zipData]);
