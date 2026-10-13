@@ -8,6 +8,7 @@
 
   import { hasPermission } from "$lib/types";
   import { formatPostalCityLine } from "$lib/address";
+  import { formatDate } from "$lib/utils/date";
 
   let { data, form } = $props();
   let t = getContext("i18n") as (key: string) => string;
@@ -23,7 +24,7 @@
     const due = invoice.dueDate ? new Date(invoice.dueDate as string) : null;
     if (!due) return false;
     const today = new Date();
-    const dueDateObj = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const dueDateObj = new Date(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
     const todayObj = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     return dueDateObj.valueOf() < todayObj.valueOf();
   });
@@ -61,17 +62,8 @@
     emailDialog?.showModal();
   }
 
-  function fmtDate(d?: string | Date) {
-    if (!d) return "";
-    const dt = typeof d === "string" ? new Date(d) : d;
-    if (Number.isNaN(dt.getTime())) return "";
-    const year = dt.getFullYear();
-    const month = String(dt.getMonth() + 1).padStart(2, "0");
-    const day = String(dt.getDate()).padStart(2, "0");
-    if (getLoc()?.dateFormat === "DD.MM.YYYY") {
-      return `${day}.${month}.${year}`;
-    }
-    return `${year}-${month}-${day}`;
+  function fmtDate(d?: string | Date, utc = true) {
+    return formatDate(d, getLoc()?.dateFormat, utc);
   }
 
   function fmtMoney(v?: number) {
@@ -80,7 +72,7 @@
 
   function fmtDateTime(d: Date) {
     if (!d || Number.isNaN(d.getTime())) return "";
-    const date = fmtDate(d);
+    const date = fmtDate(d, false);
     const h = String(d.getHours()).padStart(2, "0");
     const m = String(d.getMinutes()).padStart(2, "0");
     return `${date} ${h}:${m}`;

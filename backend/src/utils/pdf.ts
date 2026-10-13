@@ -153,9 +153,11 @@ function lighten(hex: string, amount = 0.85): string {
 function formatDate(d?: Date, format: string = "YYYY-MM-DD") {
   if (!d) return undefined;
   const date = new Date(d);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  // Issue/due dates are stored as UTC midnight; read UTC parts so the
+  // server's timezone can't shift them by a day.
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
 
   if (format === "DD.MM.YYYY") {
     return `${day}.${month}.${year}`;
