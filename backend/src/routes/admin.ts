@@ -620,7 +620,7 @@ adminRoutes.post(
     try {
       const contentType = c.req.header("content-type") || "";
 
-      let zipData: Uint8Array;
+      let zipData: Uint8Array<ArrayBuffer>;
 
       if (contentType.includes("multipart/form-data")) {
         // Handle multipart form upload

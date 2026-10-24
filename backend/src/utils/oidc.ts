@@ -160,7 +160,7 @@ export async function exchangeAndVerify(
 
 // ── ID token verification (RS256) ─────────────────────────────────────────
 
-function b64urlToBytes(b64url: string): Uint8Array {
+function b64urlToBytes(b64url: string): Uint8Array<ArrayBuffer> {
   const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
   const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
   const bin = atob(padded);
@@ -193,7 +193,7 @@ async function verifyIdToken(
   const jwks = await getJwks(jwksUri);
   const jwk = jwks.find(
     (k) =>
-      k.kid === header.kid &&
+      (k as Record<string, unknown>).kid === header.kid &&
       (k as Record<string, unknown>).use !== "enc" &&
       ((k as Record<string, unknown>).alg === "RS256" ||
         (k as Record<string, unknown>).kty === "RSA"),
