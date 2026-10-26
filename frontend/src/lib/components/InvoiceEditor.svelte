@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getContext, onMount, untrack } from "svelte";
   import { Plus, GripVertical } from "lucide-svelte";
-  import { goto } from "$app/navigation";
+  import { goto, refreshAll } from "$app/navigation";
   import { generateId } from "$lib/utils/id";
   import ProductCombobox from "$lib/components/ProductCombobox.svelte";
   import CustomerCombobox from "$lib/components/CustomerCombobox.svelte";
