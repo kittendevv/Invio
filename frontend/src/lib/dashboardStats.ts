@@ -24,7 +24,6 @@ export type CustomerSales = {
 
 export type SalesStats = {
   total: number;
-  count: number;
   monthly: MonthlySales[];
   countries: CountrySales[];
   /** Sales whose customer has no country set */
@@ -153,7 +152,6 @@ export function computeSalesStats(
 
   return {
     total,
-    count: sales.length,
     monthly: months.map(
       (month) => byMonth.get(month) || { month, total: 0, count: 0 },
     ),

@@ -77,7 +77,6 @@ describe("computeSalesStats", () => {
   test("ignores drafts and voided invoices", () => {
     const s = computeSalesStats(invoices, null);
     expect(s.total).toBe(470);
-    expect(s.count).toBe(4);
   });
 
   test("filters by year and always returns 12 months", () => {
