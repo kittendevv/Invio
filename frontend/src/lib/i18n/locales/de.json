@@ -352,5 +352,16 @@
   "or": "oder",
   "Country": "Land",
   "Select country": "Land auswählen",
-  "No countries found": "Keine Länder gefunden"
+  "No countries found": "Keine Länder gefunden",
+  "Year": "Jahr",
+  "All time": "Gesamter Zeitraum",
+  "Sales": "Umsatz",
+  "Sales per month": "Umsatz pro Monat",
+  "Sales by country": "Umsatz nach Land",
+  "Top countries": "Top-Länder",
+  "Top customers": "Top-Kunden",
+  "No sales in this period": "Keine Umsätze in diesem Zeitraum",
+  "No country set": "Kein Land angegeben",
+  "No sales": "Keine Umsätze",
+  "Month": "Monat"
 }

@@ -3,16 +3,25 @@
   import { getContext } from "svelte";
   import { formatDate } from "$lib/utils/date";
   import { invoiceStatusLabel } from "$lib/i18n/mod";
+  import { goto } from "$app/navigation";
+  import { countryName } from "$lib/dashboardStats";
+  import SalesByMonthChart from "$lib/components/SalesByMonthChart.svelte";
+  import WorldSalesMap from "$lib/components/WorldSalesMap.svelte";
 
   let { data } = $props();
 
-  let t = getContext("i18n") as (key: string) => string;
+  let t = getContext("i18n") as (key: string, params?: Record<string, string | number>) => string;
   let numberFormat = $derived(data.localization?.numberFormat || "comma");
   let dateFormat = $derived(data.localization?.dateFormat || "YYYY-MM-DD");
   let statusCounts = $derived((data.status || {}) as Record<string, number>);
   let user = $derived(data.user);
   let canViewInvoices = $derived(user?.isAdmin || user?.permissions?.some((p) => p.resource === "invoices" && p.action === "read"));
   let canViewCustomers = $derived(user?.isAdmin || user?.permissions?.some((p) => p.resource === "customers" && p.action === "read"));
+
+  let locale = $derived(data.localization?.locale || "en");
+  let sales = $derived(data.sales);
+  let topCountries = $derived(sales?.countries || []);
+  let topCustomers = $derived(sales?.customers || []);
 
   function fmtMoney(n: number) {
     const cur = data.money?.currency || "USD";
@@ -26,10 +35,49 @@
       return `${cur} ${Number(n || 0).toFixed(2)}`;
     }
   }
+
+  function fmtCompact(n: number) {
+    const cur = data.money?.currency || "USD";
+    try {
+      const locale = numberFormat === "period" ? "de-DE" : "en-US";
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: cur,
+        notation: "compact",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1,
+      }).format(n || 0);
+    } catch {
+      return String(Math.round(n || 0));
+    }
+  }
+
+  function share(part: number, whole: number) {
+    return whole > 0 ? Math.round((part / whole) * 100) : 0;
+  }
+
+  function selectYear(e: Event) {
+    const value = (e.currentTarget as HTMLSelectElement).value;
+    goto(value === "all" ? "?" : `?year=${value}`, { keepFocus: true, noScroll: true });
+  }
 </script>
 
-<div class="mb-4">
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
   <h1 class="text-2xl font-semibold">{t("Dashboard")}</h1>
+  {#if canViewInvoices && data.years}
+    <label class="flex items-center gap-2">
+      <span class="text-sm opacity-70">{t("Year")}</span>
+      <select class="select select-sm select-bordered w-36" value={data.year === null || data.year === undefined ? "all" : String(data.year)} onchange={selectYear}>
+        <option value="all">{t("All time")}</option>
+        {#if data.year && !data.years.includes(data.year)}
+          <option value={String(data.year)}>{data.year}</option>
+        {/if}
+        {#each data.years as y (y)}
+          <option value={String(y)}>{y}</option>
+        {/each}
+      </select>
+    </label>
+  {/if}
 </div>
 
 {#if data.error}
@@ -178,6 +226,83 @@
         <div class="text-lg font-semibold sm:text-xl">
           {statusCounts.voided || 0}
         </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if canViewInvoices && sales}
+  <h2 class="mb-3 text-xl font-semibold">{t("Sales")}</h2>
+
+  <div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div class="card bg-base-100 border-base-300 rounded-box border">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">{t("Sales per month")}</h3>
+        <SalesByMonthChart monthly={sales.monthly} formatMoney={fmtMoney} formatCompact={fmtCompact} {locale} />
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border-base-300 rounded-box border">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">{t("Sales by country")}</h3>
+        <WorldSalesMap countries={sales.countries} formatMoney={fmtMoney} {locale} />
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div class="card bg-base-100 border-base-300 rounded-box border">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">{t("Top countries")}</h3>
+        {#if topCountries.length === 0 && sales.unknownCountry.count === 0}
+          <div class="py-4 text-sm opacity-60">{t("No sales in this period")}</div>
+        {:else}
+          <ul class="max-h-40 overflow-y-auto pr-1">
+            {#each topCountries as c (c.code)}
+              <li class="h-8">
+                <div class="flex items-baseline justify-between gap-2 text-sm">
+                  <span class="truncate">{countryName(c.code, locale)} <span class="text-xs opacity-60">· {c.count} {t("Invoices")}</span></span>
+                  <span class="shrink-0 tabular-nums">{fmtMoney(c.total)} <span class="opacity-60">· {share(c.total, sales.total)}%</span></span>
+                </div>
+                <div class="bg-base-content/10 mt-1 h-1.5 w-full overflow-hidden rounded-full">
+                  <div class="bg-primary h-full rounded-full" style="width: {share(c.total, topCountries[0].total)}%"></div>
+                </div>
+              </li>
+            {/each}
+          </ul>
+          {#if sales.unknownCountry.count > 0}
+            <div class="mt-3 text-xs opacity-60">
+              {t("No country set")}: {fmtMoney(sales.unknownCountry.total)} · {t("Invoices")}: {sales.unknownCountry.count}
+            </div>
+          {/if}
+        {/if}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border-base-300 rounded-box border">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">{t("Top customers")}</h3>
+        {#if topCustomers.length === 0}
+          <div class="py-4 text-sm opacity-60">{t("No sales in this period")}</div>
+        {:else}
+          <ul class="max-h-40 overflow-y-auto pr-1">
+            {#each topCustomers as c (c.id || c.name)}
+              <li class="h-8">
+                <div class="flex items-baseline justify-between gap-2 text-sm">
+                  {#if c.id && canViewCustomers}
+                    <span class="truncate"><a class="hover:underline" href={`/customers/${c.id}`}>{c.name || c.id}</a> <span class="text-xs opacity-60">· {c.count} {t("Invoices")}</span></span>
+                  {:else}
+                    <span class="truncate">{c.name || "-"} <span class="text-xs opacity-60">· {c.count} {t("Invoices")}</span></span>
+                  {/if}
+                  <span class="shrink-0 tabular-nums">{fmtMoney(c.total)} <span class="opacity-60">· {share(c.total, sales.total)}%</span></span>
+                </div>
+                <div class="bg-base-content/10 mt-1 h-1.5 w-full overflow-hidden rounded-full">
+                  <div class="bg-primary h-full rounded-full" style="width: {share(c.total, topCustomers[0].total)}%"></div>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </div>
     </div>
   </div>

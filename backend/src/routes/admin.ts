@@ -342,9 +342,11 @@ adminRoutes.get("/invoices", requirePermission("invoices", "read"), (c) => {
 
   const list = invoices.map((inv) => {
     let customerName: string | undefined = undefined;
+    let customerCountryCode: string | undefined = undefined;
     try {
       const customer = getCustomerById(inv.customerId);
       customerName = customer?.name;
+      customerCountryCode = customer?.countryCode;
     } catch (_e) {
       /* ignore */
     }
@@ -353,7 +355,9 @@ adminRoutes.get("/invoices", requirePermission("invoices", "read"), (c) => {
       : undefined;
     return {
       ...inv,
-      customer: customerName ? { name: customerName } : undefined,
+      customer: customerName
+        ? { name: customerName, countryCode: customerCountryCode }
+        : undefined,
       issue_date,
       paidWith: paymentMethods.get(inv.id),
     } as unknown;

@@ -352,5 +352,16 @@
   "or": "of",
   "Country": "Land",
   "Select country": "Selecteer land",
-  "No countries found": "Geen landen gevonden"
+  "No countries found": "Geen landen gevonden",
+  "Year": "Jaar",
+  "All time": "Altijd",
+  "Sales": "Verkopen",
+  "Sales per month": "Verkopen per maand",
+  "Sales by country": "Verkopen per land",
+  "Top countries": "Toplanden",
+  "Top customers": "Topklanten",
+  "No sales in this period": "Geen verkopen in deze periode",
+  "No country set": "Geen land ingesteld",
+  "No sales": "Geen verkopen",
+  "Month": "Maand"
 }
