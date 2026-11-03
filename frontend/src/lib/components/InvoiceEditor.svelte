@@ -3,6 +3,7 @@
   import { Plus, GripVertical } from "lucide-svelte";
   import { goto } from "$app/navigation";
   import { generateId } from "$lib/utils/id";
+  import { lineTaxes, lineTaxPercent, taxModeOf } from "$lib/utils/lineTaxes";
   import ProductCombobox from "$lib/components/ProductCombobox.svelte";
   import CustomerCombobox from "$lib/components/CustomerCombobox.svelte";
 
@@ -31,7 +32,7 @@
     status: initInvoice?.status || "draft",
     issueDate: initInvoice?.issueDate ? new Date(initInvoice.issueDate).toISOString().slice(0, 10) : today,
     dueDate: initInvoice?.dueDate ? new Date(initInvoice.dueDate).toISOString().slice(0, 10) : "",
-    taxMode: initInvoice?.taxMode || "invoice",
+    taxMode: taxModeOf(initInvoice?.items),
     taxRate: initInvoice?.taxRate || 0,
     pricesIncludeTax: initInvoice?.pricesIncludeTax ? "true" : "false",
     roundingMode: initInvoice?.roundingMode || "line",
@@ -47,6 +48,7 @@
           id: generateId(),
           unit: i.unit || "",
           productId: i.productId || "",
+          taxPercent: lineTaxPercent(i),
         }))
       : [
           {
@@ -213,6 +215,8 @@
         // typed one; otherwise let the backend assign it using the real customerId.
         invoiceNumber: !initInvoice && !invoiceNumberTouched ? undefined : form.invoiceNumber,
         pricesIncludeTax: form.pricesIncludeTax === "true",
+        // In per-line mode the hidden invoice rate must not apply instead when no line has tax
+        taxRate: form.taxMode === "line" ? 0 : form.taxRate,
         items: items.map((i) => ({
           productId: i.productId || undefined,
           description: i.description,
@@ -220,6 +224,7 @@
           unit: typeof i.unit === "string" ? i.unit.trim() : "",
           unitPrice: Number(i.unitPrice),
           taxPercent: Number(i.taxPercent || 0),
+          taxes: lineTaxes(form.taxMode, i.taxPercent),
           notes: i.notes,
         })),
       };
