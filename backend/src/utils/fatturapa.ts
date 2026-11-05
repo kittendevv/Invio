@@ -26,6 +26,18 @@ function decimals(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2);
 }
 
+type TaxSummaryRow = { percent: number; taxable: number; amount: number };
+
+// Lines without taxes are not in the stored per-rate summary: add their base
+// at 0% (net total minus the taxed bases) so the summary covers every line
+function addUntaxedBase(rows: TaxSummaryRow[], netTotal: number): void {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const base = r2(netTotal - rows.reduce((s, r) => s + r.taxable, 0));
+  const zero = rows.find((r) => r.percent === 0);
+  if (zero) zero.taxable = r2(zero.taxable + base);
+  else rows.unshift({ percent: 0, taxable: base, amount: 0 });
+}
+
 function safeCurrency(biz?: BusinessSettings, invCurrency?: string): string {
   return (invCurrency || biz?.currency || "EUR").toUpperCase();
 }
@@ -132,6 +144,22 @@ export function generateFatturaXML(
   const taxAmount = Number(invoice.taxAmount || 0);
   const taxableAmount = Math.max(0, (invoice.subtotal || 0) - (invoice.discountAmount || 0));
 
+  // With per-line taxes the invoice-level taxRate is 0: take each line's rate
+  // and the stored per-rate summary instead (as Factur-X does)
+  const hasLineTaxes = invoice.items.some((it) => (it.taxes?.length || 0) > 0);
+  const storedTaxes = hasLineTaxes ? invoice.taxes ?? [] : [];
+  const lineSummary = storedTaxes.length > 0;
+  const summary = lineSummary
+    ? storedTaxes.map((t) => ({
+      percent: Number(t.percent) || 0,
+      taxable: Number(t.taxableAmount) || 0,
+      amount: Number(t.taxAmount) || 0,
+    }))
+    : [{ percent: taxRate, taxable: taxableAmount, amount: taxAmount }];
+  if (lineSummary && invoice.items.some((it) => !(it.taxes?.length))) {
+    addUntaxedBase(summary, Number(invoice.total || 0) - taxAmount);
+  }
+
   const sellerVatId = extractVatId(business.companyTaxId);
   const buyerVatId = extractVatId(invoice.customer.taxId);
   const sellerCF = extractTaxCode(business.companyTaxId);
@@ -202,7 +230,9 @@ export function generateFatturaXML(
     const qty = Number(item.quantity) || 1;
     const unitPrice = Number(item.unitPrice) || 0;
     const lineTotal = Number(item.lineTotal) || (qty * unitPrice);
-    const lineRate = Number(invoice.taxRate || 0);
+    const lineRate = hasLineTaxes
+      ? Number(item.taxes?.[0]?.percent) || 0
+      : taxRate;
     
     return `
     <DettaglioLinee>
@@ -229,14 +259,14 @@ export function generateFatturaXML(
       </DatiGeneraliDocumento>
     </DatiGenerali>
     <DatiBeniServizi>
-      ${linesXml}
+      ${linesXml}${summary.map((s) => `
       <DatiRiepilogo>
-        <AliquotaIVA>${decimals(taxRate)}</AliquotaIVA>
-        <Natura>${taxNatureId(taxRate)}</Natura>
-        <ImponibileImporto>${decimals(taxableAmount)}</ImponibileImporto>
-        <Imposta>${decimals(taxAmount)}</Imposta>
+        <AliquotaIVA>${decimals(s.percent)}</AliquotaIVA>
+        <Natura>${taxNatureId(s.percent)}</Natura>
+        <ImponibileImporto>${decimals(s.taxable)}</ImponibileImporto>
+        <Imposta>${decimals(s.amount)}</Imposta>
         <EsigibilitaIVA>I</EsigibilitaIVA>
-      </DatiRiepilogo>
+      </DatiRiepilogo>`).join("")}
     </DatiBeniServizi>
     <DatiPagamento>
       <CondizioniPagamento>TP02</CondizioniPagamento>
