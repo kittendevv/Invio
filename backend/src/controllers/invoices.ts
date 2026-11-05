@@ -1212,13 +1212,39 @@ export const duplicateInvoice = async (
   const now = new Date();
   // Start as draft with a draft invoice number; copy descriptive fields, totals will be recalculated from items
   const items = original.items || [];
-  // Recompute totals to avoid stale numbers
-  const totals = calculateInvoiceTotals(
-    items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice })),
-    original.discountPercentage,
-    original.discountAmount,
-    original.taxRate,
-  );
+  const pricesIncludeTax = Boolean((original as Invoice).pricesIncludeTax);
+  const roundingMode = ((original as Invoice).roundingMode || "line") as
+    "line" | "total";
+  // Recompute totals to avoid stale numbers, the same way createInvoice does
+  const hasPerLineTaxes = items.some((i) => (i.taxes?.length || 0) > 0);
+  const perLineCalc = hasPerLineTaxes
+    ? calculatePerLineTotals(
+        items.map((i) => ({
+          description: i.description,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          taxes: (i.taxes || []).map((t) => ({
+            percent: t.percent,
+            taxDefinitionId: t.taxDefinitionId,
+            note: t.note,
+          })),
+        })),
+        original.discountPercentage,
+        original.discountAmount,
+        pricesIncludeTax,
+        roundingMode,
+      )
+    : undefined;
+  const totals =
+    perLineCalc ??
+    calculateInvoiceTotals(
+      items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice })),
+      original.discountPercentage,
+      original.discountAmount,
+      original.taxRate,
+      pricesIncludeTax,
+      roundingMode,
+    );
   db.execute("BEGIN");
   try {
     db.query(
@@ -1249,8 +1275,8 @@ export const duplicateInvoice = async (
         newShare,
         now,
         now,
-        (original as Invoice).pricesIncludeTax ? 1 : 0,
-        (original as Invoice).roundingMode || "line",
+        pricesIncludeTax ? 1 : 0,
+        roundingMode,
         (original as Invoice).locale ?? null,
       ],
     );
@@ -1280,6 +1306,67 @@ export const duplicateInvoice = async (
           it.notes || null,
           idx,
           ...snapshotParams(snapshot),
+        ],
+      );
+      const lineCalc = perLineCalc?.perItem[idx];
+      for (const t of lineCalc?.taxes || []) {
+        db.query(
+          `INSERT INTO invoice_item_taxes (id, invoice_item_id, tax_definition_id, percent, taxable_amount, amount, included, sequence, note, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            generateUUID(),
+            itemId,
+            t.taxDefinitionId || null,
+            t.percent,
+            lineCalc!.taxable,
+            t.amount,
+            pricesIncludeTax ? 1 : 0,
+            0,
+            t.note || null,
+            now,
+          ],
+        );
+      }
+    }
+    // Invoice tax summary: per-rate totals, or the invoice-level tax definition
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const afterDiscount = r2(totals.subtotal - totals.discountAmount);
+    const rate = Math.max(0, Number(original.taxRate) || 0) / 100;
+    const invoiceTaxes: Array<{
+      taxDefinitionId: string | null;
+      percent: number;
+      taxable: number;
+      amount: number;
+    }> = perLineCalc
+      ? perLineCalc.summary.map((s) => ({
+          taxDefinitionId: null,
+          percent: s.percent,
+          taxable: s.taxable,
+          amount: s.amount,
+        }))
+      : (original.taxes || [])
+          .filter((t) => t.taxDefinitionId)
+          .map((t) => ({
+            taxDefinitionId: t.taxDefinitionId || null,
+            percent: original.taxRate,
+            taxable:
+              pricesIncludeTax && rate > 0
+                ? r2(afterDiscount / (1 + rate))
+                : afterDiscount,
+            amount: totals.taxAmount,
+          }));
+    for (const t of invoiceTaxes) {
+      db.query(
+        `INSERT INTO invoice_taxes (id, invoice_id, tax_definition_id, percent, taxable_amount, tax_amount, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          generateUUID(),
+          newId,
+          t.taxDefinitionId,
+          t.percent,
+          t.taxable,
+          t.amount,
+          now,
         ],
       );
     }
