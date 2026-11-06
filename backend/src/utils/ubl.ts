@@ -48,6 +48,18 @@ function decimals(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2);
 }
 
+type TaxSummaryRow = { percent: number; taxable: number; amount: number };
+
+// Lines without taxes are not in the stored per-rate summary: add their base
+// at 0% (net total minus the taxed bases) so the summary covers every line
+function addUntaxedBase(rows: TaxSummaryRow[], netTotal: number): void {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const base = r2(netTotal - rows.reduce((s, r) => s + r.taxable, 0));
+  const zero = rows.find((r) => r.percent === 0);
+  if (zero) zero.taxable = r2(zero.taxable + base);
+  else rows.unshift({ percent: 0, taxable: base, amount: 0 });
+}
+
 function safeCurrency(biz: BusinessSettings, invCurrency?: string): string {
   return (invCurrency || biz.currency || "USD").toUpperCase();
 }
@@ -123,7 +135,28 @@ export function generateUBLInvoiceXML(
   if (invoice.customer.countryCode) buyerAddress.countryCode = invoice.customer.countryCode.toUpperCase();
 
   const taxRate = Number(invoice.taxRate || 0);
-  const taxCatId = taxCategoryId(taxRate);
+
+  // With per-line taxes the invoice-level taxRate is 0: take each line's rate
+  // and the stored per-rate summary instead (as Factur-X does)
+  const hasLineTaxes = invoice.items.some((it) => (it.taxes?.length || 0) > 0);
+  const lineRate = (item: InvoiceWithDetails["items"][number]): number =>
+    hasLineTaxes ? Number(item.taxes?.[0]?.percent) || 0 : taxRate;
+  const storedTaxes = hasLineTaxes ? invoice.taxes ?? [] : [];
+  const lineSummary = storedTaxes.length > 0;
+  const taxSubtotals = lineSummary
+    ? storedTaxes.map((t) => ({
+      percent: Number(t.percent) || 0,
+      taxable: Number(t.taxableAmount) || 0,
+      amount: Number(t.taxAmount) || 0,
+    }))
+    : [{
+      percent: taxRate,
+      taxable: invoice.subtotal - invoice.discountAmount,
+      amount: invoice.taxAmount,
+    }];
+  if (lineSummary && invoice.items.some((it) => !(it.taxes?.length))) {
+    addUntaxedBase(taxSubtotals, invoice.total - invoice.taxAmount);
+  }
 
   // Header with Note in correct position (before DocumentCurrencyCode)
   const notes = invoice.notes || business.defaultNotes;
@@ -202,16 +235,16 @@ export function generateUBLInvoiceXML(
   // Tax total
   const taxTotal = `
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(invoice.taxAmount)}</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(invoice.taxAmount)}</cbc:TaxAmount>${taxSubtotals.map((t) => `
     <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="${xmlEscape(currency)}">${decimals(invoice.subtotal - invoice.discountAmount)}</cbc:TaxableAmount>
-      <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(invoice.taxAmount)}</cbc:TaxAmount>
+      <cbc:TaxableAmount currencyID="${xmlEscape(currency)}">${decimals(t.taxable)}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(t.amount)}</cbc:TaxAmount>
       <cac:TaxCategory>
-        <cbc:ID>${taxCatId}</cbc:ID>
-        <cbc:Percent>${decimals(taxRate)}</cbc:Percent>
+        <cbc:ID>${taxCategoryId(t.percent)}</cbc:ID>
+        <cbc:Percent>${decimals(t.percent)}</cbc:Percent>
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:TaxCategory>
-    </cac:TaxSubtotal>
+    </cac:TaxSubtotal>`).join("")}
   </cac:TaxTotal>`;
 
   // Monetary totals
@@ -232,8 +265,8 @@ export function generateUBLInvoiceXML(
       <cac:Item>
         <cbc:Name>${xmlEscape(item.description)}</cbc:Name>
         <cac:ClassifiedTaxCategory>
-          <cbc:ID>${taxCatId}</cbc:ID>
-          <cbc:Percent>${decimals(taxRate)}</cbc:Percent>
+          <cbc:ID>${taxCategoryId(lineRate(item))}</cbc:ID>
+          <cbc:Percent>${decimals(lineRate(item))}</cbc:Percent>
           <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
         </cac:ClassifiedTaxCategory>
       </cac:Item>
