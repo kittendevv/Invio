@@ -4,6 +4,7 @@
   import { goto } from "$app/navigation";
   import { generateId } from "$lib/utils/id";
   import { lineTaxes, lineTaxPercent, taxModeOf } from "$lib/utils/lineTaxes";
+  import { editorCurrency } from "$lib/utils/invoiceCurrency";
   import ProductCombobox from "$lib/components/ProductCombobox.svelte";
   import CustomerCombobox from "$lib/components/CustomerCombobox.svelte";
 
@@ -28,7 +29,7 @@
   let form = $state({
     customerId: initInvoice?.customerId || "",
     invoiceNumber: initInvoice?.invoiceNumber ?? initNextInvoiceNumber,
-    currency: initSettings?.currency || "EUR",
+    currency: editorCurrency(initInvoice, initSettings),
     status: initInvoice?.status || "draft",
     issueDate: initInvoice?.issueDate ? new Date(initInvoice.issueDate).toISOString().slice(0, 10) : today,
     dueDate: initInvoice?.dueDate ? new Date(initInvoice.dueDate).toISOString().slice(0, 10) : "",
