@@ -92,12 +92,17 @@ export function generateFacturX22XML(
   // EN16931 (COMFORT) profile - required for XRechnung compliance
   const profileUrn = "urn:cen.eu:en16931:2017";
 
+  // With prices including tax the subtotal is gross: the net is total - tax
+  const netTotal = invoice.pricesIncludeTax
+    ? Math.max(0, Math.round(((invoice.total || 0) - (invoice.taxAmount || 0)) * 100) / 100)
+    : Math.max(0, (invoice.subtotal || 0) - (invoice.discountAmount || 0));
+
   // Tax summary
   const taxes = (invoice.taxes && invoice.taxes.length > 0)
     ? invoice.taxes.map((t) => ({ percent: Number(t.percent) || 0, taxable: Number(t.taxableAmount) || 0, amount: Number(t.taxAmount) || 0 }))
     : ((invoice.taxAmount || 0) > 0 ? [{
       percent: Number(invoice.taxRate) || 0,
-      taxable: Math.max(0, (invoice.subtotal || 0) - (invoice.discountAmount || 0)),
+      taxable: netTotal,
       amount: Number(invoice.taxAmount) || 0,
     }] : []);
 
@@ -205,7 +210,7 @@ export function generateFacturX22XML(
     ${paymentTerms ? `<ram:SpecifiedTradePaymentTerms><ram:Description>${xmlEscape(paymentTerms)}</ram:Description></ram:SpecifiedTradePaymentTerms>` : ""}
     <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
       <ram:LineTotalAmount>${decimals(invoice.subtotal)}</ram:LineTotalAmount>
-      <ram:TaxBasisTotalAmount>${decimals(Math.max(0, invoice.subtotal - invoice.discountAmount))}</ram:TaxBasisTotalAmount>
+      <ram:TaxBasisTotalAmount>${decimals(netTotal)}</ram:TaxBasisTotalAmount>
       <ram:TaxTotalAmount currencyID="${xmlEscape(currency)}">${decimals(invoice.taxAmount)}</ram:TaxTotalAmount>
       <ram:GrandTotalAmount>${decimals(invoice.total)}</ram:GrandTotalAmount>
       <ram:DuePayableAmount>${decimals(invoice.total)}</ram:DuePayableAmount>

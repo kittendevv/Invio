@@ -142,7 +142,10 @@ export function generateFatturaXML(
 
   const taxRate = Number(invoice.taxRate || 0);
   const taxAmount = Number(invoice.taxAmount || 0);
-  const taxableAmount = Math.max(0, (invoice.subtotal || 0) - (invoice.discountAmount || 0));
+  // With prices including tax the subtotal is gross: the net is total - tax
+  const taxableAmount = invoice.pricesIncludeTax
+    ? Math.max(0, Math.round((Number(invoice.total || 0) - taxAmount) * 100) / 100)
+    : Math.max(0, (invoice.subtotal || 0) - (invoice.discountAmount || 0));
 
   // With per-line taxes the invoice-level taxRate is 0: take each line's rate
   // and the stored per-rate summary instead (as Factur-X does)

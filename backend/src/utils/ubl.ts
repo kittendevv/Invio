@@ -135,6 +135,10 @@ export function generateUBLInvoiceXML(
   if (invoice.customer.countryCode) buyerAddress.countryCode = invoice.customer.countryCode.toUpperCase();
 
   const taxRate = Number(invoice.taxRate || 0);
+  // With prices including tax the subtotal is gross: the net is total - tax
+  const netTotal = invoice.pricesIncludeTax
+    ? Math.round((invoice.total - invoice.taxAmount) * 100) / 100
+    : invoice.subtotal - invoice.discountAmount;
 
   // With per-line taxes the invoice-level taxRate is 0: take each line's rate
   // and the stored per-rate summary instead (as Factur-X does)
@@ -151,7 +155,7 @@ export function generateUBLInvoiceXML(
     }))
     : [{
       percent: taxRate,
-      taxable: invoice.subtotal - invoice.discountAmount,
+      taxable: netTotal,
       amount: invoice.taxAmount,
     }];
   if (lineSummary && invoice.items.some((it) => !(it.taxes?.length))) {
@@ -251,7 +255,7 @@ export function generateUBLInvoiceXML(
   const legalMonetaryTotal = `
   <cac:LegalMonetaryTotal>
     ${amountTag("LineExtensionAmount", invoice.subtotal - invoice.discountAmount, currency)}
-    ${amountTag("TaxExclusiveAmount", invoice.subtotal - invoice.discountAmount, currency)}
+    ${amountTag("TaxExclusiveAmount", netTotal, currency)}
     ${amountTag("TaxInclusiveAmount", invoice.total, currency)}
     ${amountTag("PayableAmount", invoice.total, currency)}
   </cac:LegalMonetaryTotal>`;
