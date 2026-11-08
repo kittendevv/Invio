@@ -2,6 +2,7 @@ import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { backendGet, SESSION_COOKIE } from "$lib/backend";
 import { getVersion } from "$lib/version";
+import { dashboardMoney } from "$lib/utils/dashboardMoney";
 
 type Invoice = {
   id: string;
@@ -49,13 +50,7 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 
     const currency = (invoices[0]?.currency as string) || "USD";
     const dateFormat = String(settings.dateFormat || "YYYY-MM-DD");
-    const billed = invoices.reduce((sum, i) => sum + (i.total || 0), 0);
-    const paid = invoices
-      .filter((i) => i.status === "paid" || i.status === "complete")
-      .reduce((s, i) => s + (i.total || 0), 0);
-    const outstanding = invoices
-      .filter((i) => i.status === "sent" || i.status === "overdue")
-      .reduce((s, i) => s + (i.total || 0), 0);
+    const { billed, paid, outstanding } = dashboardMoney(invoices);
     const status = {
       draft: invoices.filter((i) => i.status === "draft").length,
       sent: invoices.filter((i) => i.status === "sent").length,
