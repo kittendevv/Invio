@@ -2,6 +2,7 @@ import { closeDatabase, initDatabase } from "../database/init.ts";
 import { createCustomer } from "../controllers/customers.ts";
 import { createInvoice, getInvoiceById } from "../controllers/invoices.ts";
 import type { BusinessSettings, InvoiceWithDetails } from "../types/index.ts";
+import { generateFacturX22XML } from "./facturx.ts";
 import { generateFatturaXML } from "./fatturapa.ts";
 import { generateUBLInvoiceXML } from "./ubl.ts";
 
@@ -200,4 +201,103 @@ Deno.test("UBL and FatturaPA keep the invoice-level tax rate", () => {
   const fattura = generateFatturaXML(invoice, business);
   assertEquals(fatturaSummary(fattura), [["19.00", "100.00", "19.00"]]);
   assertEquals(fatturaLines(fattura), ["19.00", "19.00"]);
+});
+
+// [category, percent, basis, tax] per Factur-X header ApplicableTradeTax
+function facturxTaxes(xml: string): string[][] {
+  return all(
+    xml,
+    /<ram:CalculatedAmount>([^<]*)<\/ram:CalculatedAmount>\s*<ram:TypeCode>VAT<\/ram:TypeCode>\s*<ram:BasisAmount>([^<]*)<\/ram:BasisAmount>\s*<ram:CategoryCode>([^<]*)<\/ram:CategoryCode>\s*<ram:RateApplicablePercent>([^<]*)</g,
+  ).map(([tax, basis, cat, percent]) => [cat, percent, basis, tax]);
+}
+
+// TaxBasisTotalAmount in the Factur-X header summation
+function facturxTaxBasisTotal(xml: string): string {
+  return all(xml, /<ram:TaxBasisTotalAmount>([^<]*)</g)[0][0];
+}
+
+Deno.test("XML tax base is net with the invoice-level rate and prices including tax", () => {
+  const created = createInvoice({
+    customerId: customer.id,
+    taxRate: 19,
+    pricesIncludeTax: true,
+    items: [
+      { description: "A", quantity: 1, unitPrice: 59.5 },
+      { description: "B", quantity: 2, unitPrice: 29.75 },
+    ],
+  });
+  const invoice = stored(created.id);
+  assertEquals([invoice.subtotal, invoice.taxAmount, invoice.total], [
+    119,
+    19,
+    119,
+  ]);
+
+  const ubl = generateUBLInvoiceXML(invoice, business);
+  assertEquals(ublSubtotals(ubl), [["S", "19.00", "100.00", "19.00"]]);
+  assertEquals(ublTaxExclusive(ubl), "100.00");
+
+  const facturx = generateFacturX22XML(invoice, business);
+  assertEquals(facturxTaxes(facturx), [["S", "19.00", "100.00", "19.00"]]);
+  assertEquals(facturxTaxBasisTotal(facturx), "100.00");
+
+  const fattura = generateFatturaXML(invoice, business);
+  assertEquals(fatturaSummary(fattura), [["19.00", "100.00", "19.00"]]);
+});
+
+Deno.test("XML net total with per-line taxes and prices including tax", () => {
+  const created = createInvoice({
+    customerId: customer.id,
+    pricesIncludeTax: true,
+    items: [
+      {
+        description: "A",
+        quantity: 1,
+        unitPrice: 120,
+        taxes: [{ percent: 20 }],
+      },
+      { description: "B", quantity: 1, unitPrice: 50 },
+    ],
+  });
+  const invoice = stored(created.id);
+  assertEquals([invoice.taxAmount, invoice.total], [20, 170]);
+
+  assertEquals(
+    ublTaxExclusive(generateUBLInvoiceXML(invoice, business)),
+    "150.00",
+  );
+  assertEquals(
+    facturxTaxBasisTotal(generateFacturX22XML(invoice, business)),
+    "150.00",
+  );
+});
+
+Deno.test("XML tax base is net after a discount with prices including tax", () => {
+  const created = createInvoice({
+    customerId: customer.id,
+    taxRate: 19,
+    pricesIncludeTax: true,
+    discountPercentage: 10,
+    items: [
+      { description: "A", quantity: 1, unitPrice: 59.5 },
+      { description: "B", quantity: 2, unitPrice: 29.75 },
+    ],
+  });
+  const invoice = stored(created.id);
+  assertEquals([invoice.discountAmount, invoice.taxAmount, invoice.total], [
+    11.9,
+    17.1,
+    107.1,
+  ]);
+
+  const ubl = generateUBLInvoiceXML(invoice, business);
+  assertEquals(ublSubtotals(ubl), [["S", "19.00", "90.00", "17.10"]]);
+  assertEquals(ublTaxExclusive(ubl), "90.00");
+
+  const facturx = generateFacturX22XML(invoice, business);
+  assertEquals(facturxTaxes(facturx), [["S", "19.00", "90.00", "17.10"]]);
+  assertEquals(facturxTaxBasisTotal(facturx), "90.00");
+
+  const fattura = generateFatturaXML(invoice, business);
+  assertEquals(fatturaSummary(fattura), [["19.00", "90.00", "17.10"]]);
 });
