@@ -301,3 +301,16 @@ Deno.test("XML tax base is net after a discount with prices including tax", () =
   const fattura = generateFatturaXML(invoice, business);
   assertEquals(fatturaSummary(fattura), [["19.00", "90.00", "17.10"]]);
 });
+
+Deno.test("UBL gives the buyer a legal name (BR-07)", () => {
+  const created = createInvoice({
+    customerId: customer.id,
+    items: [{ description: "A", quantity: 1, unitPrice: 10 }],
+  });
+  const ubl = generateUBLInvoiceXML(stored(created.id), business);
+  const buyer = ubl.split("<cac:AccountingCustomerParty>")[1];
+  assertEquals(
+    all(buyer, /<cac:PartyLegalEntity>\s*<cbc:RegistrationName>([^<]*)</g),
+    [["Test Customer"]],
+  );
+});
