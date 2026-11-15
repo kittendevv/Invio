@@ -215,6 +215,7 @@ export function generateUBLInvoiceXML(
         <cac:Country><cbc:IdentificationCode>${xmlEscape(buyerAddress.countryCode || "US")}</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
       ${buyer.taxId ? `<cac:PartyTaxScheme><cbc:CompanyID>${xmlEscape(buyer.taxId)}</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>` : ""}
+      <cac:PartyLegalEntity><cbc:RegistrationName>${xmlEscape(buyer.name)}</cbc:RegistrationName></cac:PartyLegalEntity>
       ${(buyer.phone || buyer.email) ? `
       <cac:Contact>
         ${buyer.phone ? `<cbc:Telephone>${xmlEscape(buyer.phone)}</cbc:Telephone>` : ""}
