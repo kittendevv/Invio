@@ -5,6 +5,14 @@ export type StatsInvoice = {
   issueDate?: string | Date;
   status?: string;
   total?: number;
+  items?: StatsInvoiceItem[];
+};
+
+export type StatsInvoiceItem = {
+  productId?: string;
+  name?: string;
+  quantity?: number;
+  lineTotal?: number;
 };
 
 export type MonthlySales = {
@@ -22,6 +30,24 @@ export type CustomerSales = {
   count: number;
 };
 
+export type ProductSales = {
+  /** Product id, or empty for free-text items that aren't linked to a product */
+  id: string;
+  name: string;
+  quantity: number;
+  /** Sum of line totals (before invoice-level discounts) */
+  total: number;
+  /** Number of invoices containing the product */
+  count: number;
+};
+
+export type WeekdaySales = {
+  /** 0 = Monday … 6 = Sunday */
+  day: number;
+  total: number;
+  count: number;
+};
+
 export type SalesStats = {
   total: number;
   monthly: MonthlySales[];
@@ -29,6 +55,9 @@ export type SalesStats = {
   /** Sales whose customer has no country set */
   unknownCountry: { total: number; count: number };
   customers: CustomerSales[];
+  products: ProductSales[];
+  /** Sales per weekday of the issue date, highest total first */
+  weekdays: WeekdaySales[];
 };
 
 // Drafts aren't issued yet and voided invoices were cancelled, so neither counts as a sale.
@@ -45,6 +74,22 @@ function issueMonth(inv: StatsInvoice): string | null {
       ? inv.issueDate
       : inv.issueDate.toISOString();
   return /^\d{4}-\d{2}/.test(s) ? s.slice(0, 7) : null;
+}
+
+/** Weekday of the issue date, 0 = Monday … 6 = Sunday. */
+export function issueWeekday(inv: StatsInvoice): number | null {
+  if (!inv.issueDate) return null;
+  const s =
+    typeof inv.issueDate === "string"
+      ? inv.issueDate
+      : inv.issueDate.toISOString();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return null;
+  // Use the calendar date as written; parsing with a time zone could shift the day.
+  const sunday0 = new Date(
+    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])),
+  ).getUTCDay();
+  return (sunday0 + 6) % 7;
 }
 
 export function invoiceYear(inv: StatsInvoice): number | null {
@@ -99,6 +144,8 @@ export function computeSalesStats(
   const byMonth = new Map<string, MonthlySales>();
   const byCountry = new Map<string, CountrySales>();
   const byCustomer = new Map<string, CustomerSales>();
+  const byProduct = new Map<string, ProductSales>();
+  const byWeekday = new Map<number, WeekdaySales>();
   const unknownCountry = { total: 0, count: 0 };
   let total = 0;
 
@@ -135,6 +182,36 @@ export function computeSalesStats(
       c.count++;
       byCustomer.set(customerKey, c);
     }
+
+    const day = issueWeekday(inv);
+    if (day !== null) {
+      const d = byWeekday.get(day) || { day, total: 0, count: 0 };
+      d.total += amount;
+      d.count++;
+      byWeekday.set(day, d);
+    }
+
+    // Free-text items are grouped by their description.
+    const seen = new Set<string>();
+    for (const item of inv.items || []) {
+      const name = (item.name || "").trim();
+      const key = item.productId ? `id:${item.productId}` : `name:${name}`;
+      if (!item.productId && !name) continue;
+      const p = byProduct.get(key) || {
+        id: item.productId || "",
+        name,
+        quantity: 0,
+        total: 0,
+        count: 0,
+      };
+      p.quantity += item.quantity || 0;
+      p.total += item.lineTotal || 0;
+      if (!seen.has(key)) {
+        p.count++;
+        seen.add(key);
+      }
+      byProduct.set(key, p);
+    }
   }
 
   let months: string[];
@@ -158,7 +235,25 @@ export function computeSalesStats(
     countries: [...byCountry.values()].sort(byTotal),
     unknownCountry,
     customers: [...byCustomer.values()].sort(byTotal),
+    products: [...byProduct.values()].sort(byTotal),
+    weekdays: [...byWeekday.values()].sort(
+      (a, b) => b.total - a.total || a.day - b.day,
+    ),
   };
+}
+
+/** Localized weekday name, 0 = Monday … 6 = Sunday. */
+export function weekdayName(day: number, locale?: string): string {
+  // 2024-01-01 was a Monday.
+  const date = new Date(Date.UTC(2024, 0, 1 + day));
+  try {
+    return new Intl.DateTimeFormat([locale || "en", "en"], {
+      weekday: "long",
+      timeZone: "UTC",
+    }).format(date);
+  } catch {
+    return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][day] || "";
+  }
 }
 
 const regionNames = new Map<string, Intl.DisplayNames | null>();

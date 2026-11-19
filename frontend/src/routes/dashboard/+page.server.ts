@@ -7,6 +7,7 @@ import {
   availableYears,
   computeSalesStats,
   invoiceYear,
+  type StatsInvoiceItem,
 } from "$lib/dashboardStats";
 
 type Invoice = {
@@ -19,6 +20,7 @@ type Invoice = {
   currency?: string;
   status?: "draft" | "sent" | "complete" | "paid" | "overdue" | "voided";
   total?: number;
+  items?: StatsInvoiceItem[];
 };
 
 export const load: PageServerLoad = async ({ locals, cookies, url }) => {
@@ -49,7 +51,9 @@ export const load: PageServerLoad = async ({ locals, cookies, url }) => {
   try {
     const [allInvoices, customers, settings] = await Promise.all([
       canViewInvoices
-        ? (backendGet("/api/v1/invoices", auth) as Promise<Invoice[]>)
+        ? (backendGet("/api/v1/invoices?includeItems=1", auth) as Promise<
+            Invoice[]
+          >)
         : Promise.resolve([] as Invoice[]),
       canViewCustomers
         ? (backendGet("/api/v1/customers", auth) as Promise<unknown[]>)

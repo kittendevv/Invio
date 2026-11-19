@@ -230,6 +230,39 @@ export function getLatestPaidPaymentMethods(
   return result;
 }
 
+export type InvoiceItemSummary = {
+  productId?: string;
+  /** Current product name when the item is linked to an existing product, else the item description */
+  name: string;
+  quantity: number;
+  lineTotal: number;
+};
+
+/** Minimal line items of all invoices, grouped by invoice id, for statistics. */
+export function getInvoiceItemSummaries(): Map<string, InvoiceItemSummary[]> {
+  const db = getDatabase();
+  const rows = db.query(
+    `SELECT ii.invoice_id, ii.product_id, COALESCE(p.name, ii.description),
+            ii.quantity, ii.line_total
+     FROM invoice_items ii
+     LEFT JOIN products p ON p.id = ii.product_id
+     ORDER BY ii.invoice_id, ii.sort_order`,
+  ) as unknown[][];
+  const result = new Map<string, InvoiceItemSummary[]>();
+  for (const row of rows) {
+    const invoiceId = String(row[0]);
+    const list = result.get(invoiceId) || [];
+    list.push({
+      productId: row[1] ? String(row[1]) : undefined,
+      name: String(row[2] ?? ""),
+      quantity: Number(row[3]) || 0,
+      lineTotal: Number(row[4]) || 0,
+    });
+    result.set(invoiceId, list);
+  }
+  return result;
+}
+
 type ProductSnapshot = Pick<
   InvoiceItem,
   "hsCode" | "countryOfOrigin" | "lengthMm" | "widthMm" | "heightMm" | "weightG"

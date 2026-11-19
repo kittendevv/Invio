@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   availableYears,
   computeSalesStats,
+  issueWeekday,
   monthRange,
+  weekdayName,
 } from "./dashboardStats";
 
 const invoices = [
@@ -13,6 +15,11 @@ const invoices = [
     issueDate: "2025-01-15",
     status: "paid",
     total: 100,
+    items: [
+      { productId: "p1", name: "Widget", quantity: 2, lineTotal: 60 },
+      { productId: "p1", name: "Widget", quantity: 1, lineTotal: 30 },
+      { name: " Shipping ", quantity: 1, lineTotal: 10 },
+    ],
   },
   {
     id: "2",
@@ -21,6 +28,7 @@ const invoices = [
     issueDate: "2025-03-02",
     status: "sent",
     total: 50,
+    items: [{ name: "Shipping", quantity: 1, lineTotal: 50 }],
   },
   {
     id: "3",
@@ -29,6 +37,10 @@ const invoices = [
     issueDate: "2025-03-20",
     status: "overdue",
     total: 300,
+    items: [
+      { productId: "p1", name: "Widget", quantity: 10, lineTotal: 300 },
+      { name: "", quantity: 1, lineTotal: 0 },
+    ],
   },
   {
     id: "4",
@@ -45,6 +57,7 @@ const invoices = [
     issueDate: "2025-02-01",
     status: "draft",
     total: 999,
+    items: [{ productId: "p2", name: "Gadget", quantity: 1, lineTotal: 999 }],
   },
   {
     id: "6",
@@ -115,5 +128,40 @@ describe("computeSalesStats", () => {
       ["A", 150],
       ["C", 20],
     ]);
+  });
+
+  test("ranks products by revenue, grouping free-text items by name", () => {
+    const s = computeSalesStats(invoices, null);
+    expect(s.products).toEqual([
+      { id: "p1", name: "Widget", quantity: 13, total: 390, count: 2 },
+      { id: "", name: "Shipping", quantity: 2, total: 60, count: 2 },
+    ]);
+  });
+
+  test("ranks weekdays by revenue", () => {
+    const s = computeSalesStats(invoices, null);
+    expect(s.weekdays).toEqual([
+      { day: 3, total: 300, count: 1 },
+      { day: 2, total: 100, count: 1 },
+      { day: 6, total: 50, count: 1 },
+      { day: 4, total: 20, count: 1 },
+    ]);
+  });
+});
+
+describe("issueWeekday", () => {
+  test("uses the calendar date with Monday as 0", () => {
+    expect(issueWeekday({ id: "x", issueDate: "2025-01-13" })).toBe(0);
+    expect(issueWeekday({ id: "x", issueDate: "2025-01-19T23:30:00Z" })).toBe(
+      6,
+    );
+    expect(issueWeekday({ id: "x" })).toBeNull();
+  });
+});
+
+describe("weekdayName", () => {
+  test("localizes Monday-based days", () => {
+    expect(weekdayName(0, "en")).toBe("Monday");
+    expect(weekdayName(6, "de")).toBe("Sonntag");
   });
 });

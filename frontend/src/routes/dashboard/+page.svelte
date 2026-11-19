@@ -4,7 +4,7 @@
   import { formatDate } from "$lib/utils/date";
   import { invoiceStatusLabel } from "$lib/i18n/mod";
   import { goto } from "$app/navigation";
-  import { countryName } from "$lib/dashboardStats";
+  import { countryName, weekdayName } from "$lib/dashboardStats";
   import SalesByMonthChart from "$lib/components/SalesByMonthChart.svelte";
   import WorldSalesMap from "$lib/components/WorldSalesMap.svelte";
 
@@ -17,11 +17,20 @@
   let user = $derived(data.user);
   let canViewInvoices = $derived(user?.isAdmin || user?.permissions?.some((p) => p.resource === "invoices" && p.action === "read"));
   let canViewCustomers = $derived(user?.isAdmin || user?.permissions?.some((p) => p.resource === "customers" && p.action === "read"));
+  let canViewProducts = $derived(user?.isAdmin || user?.permissions?.some((p) => p.resource === "products" && p.action === "read"));
 
   let locale = $derived(data.localization?.locale || "en");
   let sales = $derived(data.sales);
   let topCountries = $derived(sales?.countries || []);
   let topCustomers = $derived(sales?.customers || []);
+  let topProducts = $derived(sales?.products || []);
+  let productsTotal = $derived(topProducts.reduce((sum, p) => sum + p.total, 0));
+  let topWeekdays = $derived(sales?.weekdays || []);
+
+  function fmtQuantity(n: number) {
+    const locale = numberFormat === "period" ? "de-DE" : "en-US";
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n || 0);
+  }
 
   function fmtMoney(n: number) {
     const cur = data.money?.currency || "USD";
@@ -298,6 +307,59 @@
                 </div>
                 <div class="bg-base-content/10 mt-1 h-1.5 w-full overflow-hidden rounded-full">
                   <div class="bg-primary h-full rounded-full" style="width: {share(c.total, topCustomers[0].total)}%"></div>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border-base-300 rounded-box border">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">{t("Top products")}</h3>
+        {#if topProducts.length === 0}
+          <div class="py-4 text-sm opacity-60">{t("No sales in this period")}</div>
+        {:else}
+          <ul class="max-h-40 overflow-y-auto pr-1">
+            {#each topProducts as p (p.id ? `id:${p.id}` : `name:${p.name}`)}
+              <li class="h-8">
+                <div class="flex items-baseline justify-between gap-2 text-sm">
+                  <span class="truncate">
+                    {#if p.id && canViewProducts}
+                      <a class="hover:underline" href={`/products/${p.id}`}>{p.name || p.id}</a>
+                    {:else}
+                      {p.name || "-"}
+                    {/if}
+                    <span class="text-xs opacity-60">· {fmtQuantity(p.quantity)} × · {p.count} {t("Invoices")}</span>
+                  </span>
+                  <span class="shrink-0 tabular-nums">{fmtMoney(p.total)} <span class="opacity-60">· {share(p.total, productsTotal)}%</span></span>
+                </div>
+                <div class="bg-base-content/10 mt-1 h-1.5 w-full overflow-hidden rounded-full">
+                  <div class="bg-primary h-full rounded-full" style="width: {share(p.total, topProducts[0].total)}%"></div>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border-base-300 rounded-box border">
+      <div class="card-body p-4">
+        <h3 class="font-semibold">{t("Top days of the week")}</h3>
+        {#if topWeekdays.length === 0}
+          <div class="py-4 text-sm opacity-60">{t("No sales in this period")}</div>
+        {:else}
+          <ul class="max-h-40 overflow-y-auto pr-1">
+            {#each topWeekdays as d (d.day)}
+              <li class="h-8">
+                <div class="flex items-baseline justify-between gap-2 text-sm">
+                  <span class="truncate">{weekdayName(d.day, locale)} <span class="text-xs opacity-60">· {d.count} {t("Invoices")}</span></span>
+                  <span class="shrink-0 tabular-nums">{fmtMoney(d.total)} <span class="opacity-60">· {share(d.total, sales.total)}%</span></span>
+                </div>
+                <div class="bg-base-content/10 mt-1 h-1.5 w-full overflow-hidden rounded-full">
+                  <div class="bg-primary h-full rounded-full" style="width: {share(d.total, topWeekdays[0].total)}%"></div>
                 </div>
               </li>
             {/each}
