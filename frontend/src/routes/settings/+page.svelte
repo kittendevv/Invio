@@ -14,7 +14,28 @@
 
   let { data } = $props();
   let t = getContext("i18n") as (key: string) => string;
-  const asBool = (value: unknown) => String(value ?? "false").toLowerCase() === "true";
+  const asBool = (value: unknown, fallback = false) =>
+    value === undefined || value === null || value === ""
+      ? fallback
+      : String(value).toLowerCase() === "true";
+
+  // Checkbox settings arrive from the API as "true"/"false" strings. A checkbox
+  // bound to the string "false" shows as checked, so convert them to booleans.
+  // Missing values use the backend's default (invoice numbering is on).
+  const BOOL_SETTINGS: Record<string, boolean> = {
+    allowProtectedInvoiceChanges: false,
+    defaultPricesIncludeTax: false,
+    invoiceNumberingEnabled: true,
+    embedXmlInPdf: false,
+    embedXmlInHtml: false,
+  };
+  const withBools = (values: Record<string, unknown>) => {
+    const out: Record<string, any> = { ...values };
+    for (const [key, fallback] of Object.entries(BOOL_SETTINGS)) {
+      out[key] = asBool(values[key], fallback);
+    }
+    return out;
+  };
 
   let initialSettings = $derived(data.settings || {});
   let baselineSettings = $state({} as Record<string, any>);
@@ -23,8 +44,7 @@
     numberFormat: "comma",
     postalCityFormat: "auto",
     invoiceFallbackLocale: "",
-    ...initialSettings,
-    allowProtectedInvoiceChanges: asBool((initialSettings as Record<string, unknown>).allowProtectedInvoiceChanges),
+    ...withBools(initialSettings as Record<string, unknown>),
   } as Record<string, any>);
 
   let saving = $state(false);
@@ -54,7 +74,7 @@
     if (data.settings) {
       baselineSettings = { ...data.settings };
       if (Object.keys(settings).length === 0) {
-        settings = { ...data.settings };
+        settings = withBools(data.settings);
       } else {
         // Just make sure the references don't break
       }
@@ -72,9 +92,9 @@
       const baseline = JSON.parse(JSON.stringify(baselineSettings)) as Record<string, any>;
       const payload: Record<string, any> = {};
       for (const [key, value] of Object.entries(current)) {
-        if (key === "allowProtectedInvoiceChanges") {
+        if (key in BOOL_SETTINGS) {
           const normalized = Boolean(value);
-          const baselineNormalized = Boolean(baseline[key]);
+          const baselineNormalized = asBool(baseline[key], BOOL_SETTINGS[key]);
           if (normalized !== baselineNormalized) {
             payload[key] = normalized;
           }
@@ -100,11 +120,10 @@
       if (latestRes.ok) {
         const latest = await latestRes.json();
         settings = {
-          ...latest,
+          ...withBools(latest),
           dateFormat: latest.dateFormat || "YYYY-MM-DD",
           numberFormat: latest.numberFormat || "comma",
           postalCityFormat: latest.postalCityFormat || "auto",
-          allowProtectedInvoiceChanges: String(latest.allowProtectedInvoiceChanges || "false").toLowerCase() === "true",
         };
         baselineSettings = { ...latest };
       }
