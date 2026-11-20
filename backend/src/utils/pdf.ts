@@ -1,13 +1,17 @@
 import {
+  decodePDFRawStream,
   PDFArray,
   PDFDict,
   PDFDocument,
+  PDFHexString,
   PDFName,
   PDFNumber,
+  PDFRawStream,
+  PDFStream,
   PDFString,
 } from "pdf-lib";
 import { generateInvoiceXML, XMLProfile } from "./xmlProfiles.ts";
-import { generateZugferdXMP } from "./xmp.ts";
+import { mergeZugferdIntoXMP } from "./xmp.ts";
 import { join } from "std/path";
 import {
   BusinessSettings,
@@ -459,6 +463,7 @@ export async function generateInvoicePDF(
     true,
   );
   const attachments: Array<{ fileName: string; bytes: Uint8Array }> = [];
+  let facturx: { xml: Uint8Array; profile: XMLProfile } | undefined;
   if (opts?.embedXml) {
     try {
       const profileId = opts.embedXmlProfileId || "ubl21";
@@ -467,23 +472,40 @@ export async function generateInvoicePDF(
         invoiceData,
         renderSettings || ({} as BusinessSettings),
       );
-      attachments.push({
-        fileName: `invoice-${
-          invoiceData.invoiceNumber || invoiceData.id
-        }.${profile.fileExtension}`,
-        bytes: new TextEncoder().encode(xml),
-      });
+      const bytes = new TextEncoder().encode(xml);
+      if (isFacturXProfile(profile)) {
+        // Factur-X / ZUGFeRD needs a fixed file name, AFRelationship and XMP
+        // metadata that WeasyPrint's generic --attachment does not provide.
+        facturx = { xml: bytes, profile };
+      } else {
+        attachments.push({
+          fileName: `invoice-${
+            invoiceData.invoiceNumber || invoiceData.id
+          }.${profile.fileExtension}`,
+          bytes,
+        });
+      }
     } catch (error) {
       console.warn("Failed to prepare XML attachment:", error);
     }
   }
 
+  let pdfBytes: Uint8Array;
   try {
-    return await renderPdfWithWeasyPrint(html, attachments);
+    pdfBytes = await renderPdfWithWeasyPrint(html, attachments);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`WeasyPrint PDF rendering failed: ${msg}`);
   }
+
+  if (facturx) {
+    pdfBytes = await embedFacturXAttachment(pdfBytes, facturx.xml);
+  }
+  return pdfBytes;
+}
+
+function isFacturXProfile(profile: XMLProfile): boolean {
+  return profile.id === "facturx22" || profile.id === "zugferd";
 }
 
 export function buildInvoiceHTML(
@@ -648,103 +670,128 @@ async function renderPdfWithWeasyPrint(
   }
 }
 
-export async function embedXmlAttachment(
+// File name mandated by Factur-X 1.0 / ZUGFeRD 2.x for the embedded invoice XML.
+export const FACTURX_FILE_NAME = "factur-x.xml";
+
+/**
+ * Embed a Factur-X / ZUGFeRD CII XML into a PDF/A-3 document as required by the
+ * standard: file name "factur-x.xml", MIME type text/xml, AFRelationship
+ * "Alternative", referenced from the catalog /AF array, and the fx: XMP
+ * properties merged into the document metadata. The document info dictionary is
+ * left untouched so it stays in sync with the XMP (PDF/A requirement).
+ */
+export async function embedFacturXAttachment(
   pdfBytes: Uint8Array,
   xmlBytes: Uint8Array,
-  fileName: string,
-  mediaType: string,
-  description: string,
-  docLang?: string,
-  profile?: XMLProfile,
+  conformanceLevel = "EN 16931",
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(pdfBytes, { updateMetadata: false });
   const context = pdfDoc.context;
-  const now = new Date();
-  const paramsDict = context.obj({
-    Size: PDFNumber.of(xmlBytes.length),
-    CreationDate: PDFString.fromDate(now),
-    ModDate: PDFString.fromDate(now),
-  });
+  const fileName = FACTURX_FILE_NAME;
+  const now = PDFString.fromDate(new Date());
 
-  const subtypeName = mediaType.includes("/")
-    ? mediaType.replace("/", "#2F")
-    : mediaType;
-
-  const embeddedFileStream = context.stream(xmlBytes, {
+  const embeddedFileStream = context.flateStream(xmlBytes, {
     Type: PDFName.of("EmbeddedFile"),
-    Subtype: PDFName.of(subtypeName),
-    Params: paramsDict,
+    Subtype: PDFName.of("text/xml"),
+    Params: context.obj({
+      Size: PDFNumber.of(xmlBytes.length),
+      ModDate: now,
+    }),
   });
   const embeddedFileRef = context.register(embeddedFileStream);
 
-  const efDict = context.obj({
-    F: embeddedFileRef,
-    UF: embeddedFileRef,
-  });
-
-  const fileSpecDict = context.obj({
+  const fileSpecRef = context.register(context.obj({
     Type: PDFName.of("Filespec"),
     F: PDFString.of(fileName),
-    UF: PDFString.of(fileName),
-    EF: efDict,
-    Desc: PDFString.of(description),
-    AFRelationship: PDFName.of("Data"),
-  });
-  const fileSpecRef = context.register(fileSpecDict);
+    UF: PDFHexString.fromText(fileName),
+    EF: context.obj({ F: embeddedFileRef, UF: embeddedFileRef }),
+    Desc: PDFString.of("Factur-X/ZUGFeRD invoice"),
+    AFRelationship: PDFName.of("Alternative"),
+  }));
 
-  let namesDict = pdfDoc.catalog.get(PDFName.of("Names"));
+  // /Names /EmbeddedFiles name tree
+  const catalog = pdfDoc.catalog;
+  let namesDict = catalog.lookup(PDFName.of("Names"));
   if (!(namesDict instanceof PDFDict)) {
-    const created = context.obj({});
-    pdfDoc.catalog.set(PDFName.of("Names"), created);
-    namesDict = created;
+    namesDict = context.obj({});
+    catalog.set(PDFName.of("Names"), namesDict);
   }
-  const namesDictObj = namesDict as PDFDict;
-
-  let embeddedFilesDict = namesDictObj.get(PDFName.of("EmbeddedFiles"));
-  if (!(embeddedFilesDict instanceof PDFDict)) {
-    const created = context.obj({});
-    namesDictObj.set(PDFName.of("EmbeddedFiles"), created);
-    embeddedFilesDict = created;
+  const names = namesDict as PDFDict;
+  let efTree = names.lookup(PDFName.of("EmbeddedFiles"));
+  if (!(efTree instanceof PDFDict)) {
+    efTree = context.obj({});
+    names.set(PDFName.of("EmbeddedFiles"), efTree);
   }
-  const embeddedFilesDictObj = embeddedFilesDict as PDFDict;
-
-  let namesArray = embeddedFilesDictObj.get(PDFName.of("Names"));
+  const efTreeDict = efTree as PDFDict;
+  let namesArray = efTreeDict.lookup(PDFName.of("Names"));
   if (!(namesArray instanceof PDFArray)) {
-    const created = context.obj([]);
-    embeddedFilesDictObj.set(PDFName.of("Names"), created);
-    namesArray = created;
+    namesArray = context.obj([]);
+    efTreeDict.set(PDFName.of("Names"), namesArray);
   }
-  const namesArrayObj = namesArray as PDFArray;
-  namesArrayObj.push(PDFString.of(fileName));
-  namesArrayObj.push(fileSpecRef);
+  // Name tree keys must be sorted; "factur-x.xml" goes first unless an
+  // existing key sorts before it.
+  const arr = namesArray as PDFArray;
+  let insertAt = arr.size();
+  for (let i = 0; i < arr.size(); i += 2) {
+    const key = arr.lookup(i);
+    const keyText = key instanceof PDFString || key instanceof PDFHexString
+      ? key.decodeText()
+      : "";
+    if (keyText > fileName) {
+      insertAt = i;
+      break;
+    }
+  }
+  arr.insert(insertAt, fileSpecRef);
+  arr.insert(insertAt, PDFString.of(fileName));
 
-  let afArray = pdfDoc.catalog.get(PDFName.of("AF"));
+  // Associated files on the document catalog (PDF/A-3)
+  let afArray = catalog.lookup(PDFName.of("AF"));
   if (!(afArray instanceof PDFArray)) {
-    const created = context.obj([]);
-    pdfDoc.catalog.set(PDFName.of("AF"), created);
-    afArray = created;
+    afArray = context.obj([]);
+    catalog.set(PDFName.of("AF"), afArray);
   }
-  const afArrayObj = afArray as PDFArray;
-  afArrayObj.push(fileSpecRef);
+  (afArray as PDFArray).push(fileSpecRef);
 
-  pdfDoc.setSubject(`Embedded XML: ${fileName}`);
-  pdfDoc.setKeywords(["Invoice", "Embedded XML", fileName]);
-  pdfDoc.setModificationDate(now);
-  if (docLang) {
-    pdfDoc.catalog.set(PDFName.of("Lang"), PDFString.of(docLang));
-  }
-
-  if (profile && (profile.id === "facturx22" || profile.id === "zugferd")) {
-    const xmp = generateZugferdXMP(fileName, "EN16931");
-    const metadataStream = context.stream(xmp, {
+  // Merge fx: metadata into the existing XMP so PDF/A identification is kept.
+  const existingXmp = readCatalogXmp(pdfDoc);
+  const xmp = mergeZugferdIntoXMP(existingXmp, fileName, conformanceLevel);
+  const metadataRef = context.register(
+    context.stream(new TextEncoder().encode(xmp), {
       Type: PDFName.of("Metadata"),
       Subtype: PDFName.of("XML"),
-    });
-    const metadataRef = context.register(metadataStream);
-    pdfDoc.catalog.set(PDFName.of("Metadata"), metadataRef);
+    }),
+  );
+  catalog.set(PDFName.of("Metadata"), metadataRef);
+
+  // PDF/A requires a file identifier in the trailer; older WeasyPrint versions
+  // (e.g. 57.x shipped with Debian 12) do not write one.
+  if (!context.trailerInfo.ID) {
+    const id = Array.from(
+      crypto.getRandomValues(new Uint8Array(16)),
+      (b) => b.toString(16).padStart(2, "0"),
+    ).join("");
+    context.trailerInfo.ID = context.obj([
+      PDFHexString.of(id),
+      PDFHexString.of(id),
+    ]);
   }
 
   return pdfDoc.save({ useObjectStreams: false });
+}
+
+function readCatalogXmp(pdfDoc: PDFDocument): string | undefined {
+  const stream = pdfDoc.catalog.lookup(PDFName.of("Metadata"));
+  if (!(stream instanceof PDFStream)) return undefined;
+  try {
+    const bytes = stream instanceof PDFRawStream
+      ? decodePDFRawStream(stream).decode()
+      : stream.getContents();
+    return new TextDecoder().decode(bytes);
+  } catch (error) {
+    console.warn("Failed to read existing XMP metadata:", error);
+    return undefined;
+  }
 }
 
 // Alias for backward compatibility
