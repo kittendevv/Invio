@@ -352,5 +352,18 @@
   "or": "or",
   "Country": "Country",
   "Select country": "Select country",
-  "No countries found": "No countries found"
+  "No countries found": "No countries found",
+  "Year": "Year",
+  "All time": "All time",
+  "Sales": "Sales",
+  "Sales per month": "Sales per month",
+  "Sales by country": "Sales by country",
+  "Top countries": "Top countries",
+  "Top customers": "Top customers",
+  "No sales in this period": "No sales in this period",
+  "No country set": "No country set",
+  "No sales": "No sales",
+  "Month": "Month",
+  "Top products": "Top products",
+  "Top days of the week": "Top days of the week"
 }

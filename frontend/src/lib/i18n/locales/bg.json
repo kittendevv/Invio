@@ -299,5 +299,18 @@
   "Español (Argentina)": "Español (Argentina)",
   "Country": "Държава",
   "Select country": "Избери държава",
-  "No countries found": "Няма намерени държави"
+  "No countries found": "Няма намерени държави",
+  "Year": "Година",
+  "All time": "За целия период",
+  "Sales": "Продажби",
+  "Sales per month": "Продажби по месеци",
+  "Sales by country": "Продажби по държави",
+  "Top countries": "Топ държави",
+  "Top customers": "Топ клиенти",
+  "No sales in this period": "Няма продажби за този период",
+  "No country set": "Няма зададена държава",
+  "No sales": "Няма продажби",
+  "Month": "Месец",
+  "Top products": "Топ продукти",
+  "Top days of the week": "Топ дни от седмицата"
 }

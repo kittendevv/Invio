@@ -485,4 +485,27 @@ Deno.test("A discount is a document-level allowance in UBL and Factur-X", () => 
     [facturx.lineTotal, facturx.allowanceTotal, facturx.taxBasis, facturx.allowances],
     [200, 20, 180, [["19.00", -20]]],
   );
+Deno.test("UBL writes the city and postal code of both parties", () => {
+  const berlin = createCustomer({
+    name: "Berlin Customer",
+    address: "Hauptstrasse 1",
+    city: "Berlin",
+    postalCode: "10115",
+    countryCode: "DE",
+  });
+  const created = createInvoice({
+    customerId: berlin.id,
+    items: [{ description: "A", quantity: 1, unitPrice: 10 }],
+  });
+  const ubl = generateUBLInvoiceXML(stored(created.id), {
+    ...business,
+    companyAddress: "Marktplatz 2",
+    companyCity: "Munich",
+    companyPostalCode: "80331",
+  });
+  const [seller, buyer] = ubl
+    .split("<cac:AccountingCustomerParty>")
+    .map((part) => [all(part, /<cbc:CityName>([^<]*)</g), all(part, /<cbc:PostalZone>([^<]*)</g)]);
+  assertEquals(seller, [[["Munich"]], [["80331"]]]);
+  assertEquals(buyer, [[["Berlin"]], [["10115"]]]);
 });

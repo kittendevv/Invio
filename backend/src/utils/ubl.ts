@@ -117,6 +117,12 @@ export function generateUBLInvoiceXML(
   }
   if (business.companyCountryCode) sellerAddress.countryCode = business.companyCountryCode.toUpperCase();
   if (invoice.customer.countryCode) buyerAddress.countryCode = invoice.customer.countryCode.toUpperCase();
+  // The forms store city and postal code in their own fields; the one-line
+  // address is only a fallback (same as the Factur-X export).
+  if (business.companyCity) sellerAddress.city = business.companyCity;
+  if (business.companyPostalCode) sellerAddress.postalZone = business.companyPostalCode;
+  if (invoice.customer.city) buyerAddress.city = invoice.customer.city;
+  if (invoice.customer.postalCode) buyerAddress.postalZone = invoice.customer.postalCode;
 
   // Line net amounts, VAT breakdown, discount allowances and totals that
   // satisfy the EN 16931 calculation rules
