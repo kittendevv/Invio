@@ -3,6 +3,7 @@ import {
   generateDraftInvoiceNumber,
   getDatabase,
   getNextInvoiceNumber,
+  patternNeedsAllocation,
 } from "../database/init.ts";
 import { getSetting } from "./settings.ts";
 import { getProductById } from "./products.ts";
@@ -318,7 +319,7 @@ export const createInvoice = (
       );
       if (rows.length > 0) {
         const pattern = String((rows[0] as unknown[])[0] || "").trim();
-        if (pattern && /\{(C?SEQ|CNUM)\}/.test(pattern)) {
+        if (pattern && patternNeedsAllocation(pattern)) {
           invoiceNumber = getNextInvoiceNumber(data.customerId);
         } else {
           invoiceNumber = generateDraftInvoiceNumber();
