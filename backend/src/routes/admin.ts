@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import {
   createInvoice,
   deleteInvoice,
+  createCreditNote,
   duplicateInvoice,
   getInvoiceById,
   getInvoiceItemSummaries,
@@ -66,7 +67,11 @@ import {
   updateCategory,
   updateUnit,
 } from "../controllers/productOptions.ts";
-import { buildInvoiceHTML, generatePDF } from "../utils/pdf.ts";
+import {
+  buildInvoiceHTML,
+  documentFileName,
+  generatePDF,
+} from "../utils/pdf.ts";
 import { isEmailConfigured, sendEmail } from "../utils/email.ts";
 import { generateUBLInvoiceXML } from "../utils/ubl.ts"; // legacy direct import
 import { generateInvoiceXML, listXMLProfiles } from "../utils/xmlProfiles.ts";
@@ -452,6 +457,21 @@ adminRoutes.post(
     const copy = await duplicateInvoice(id);
     if (!copy) return c.json({ error: "Invoice not found" }, 404);
     return c.json(copy);
+  },
+);
+
+adminRoutes.post(
+  "/invoices/:id/credit-note",
+  requirePermission("invoices", "create"),
+  async (c) => {
+    const id = c.req.param("id");
+    try {
+      const note = await createCreditNote(id);
+      return c.json(note);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return c.json({ error: msg }, /not found/i.test(msg) ? 404 : 400);
+    }
   },
 );
 
@@ -1615,9 +1635,7 @@ adminRoutes.get(
       return new Response(pdfBuffer, {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="invoice-${
-            invoice.invoiceNumber || id
-          }.pdf"`,
+          "Content-Disposition": `attachment; filename="${documentFileName(invoice, id, "pdf")}"`,
           ...(hasAttachment
             ? {
               "X-Embedded-XML": "true",
@@ -1741,6 +1759,8 @@ adminRoutes.post(
     // Build email body
     const companyName = businessSettings.companyName;
     const invoiceNumber = invoice.invoiceNumber || invoice.id;
+    const isCreditNote = invoice.documentType === "credit_note";
+    const docWord = isCreditNote ? "Credit note" : "Invoice";
     const total = `${Number(invoice.total || 0).toFixed(2)} ${invoice.currency || ""}`.trim();
     const issueDate = invoice.issueDate
       ? new Date(invoice.issueDate).toISOString().slice(0, 10)
@@ -1758,7 +1778,7 @@ adminRoutes.post(
       ? `<p style="white-space:pre-wrap;">${message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
       : "";
     const shareLinkHtml = shareLink
-      ? `<p><a href="${shareLink}" style="color:#2563eb;">View invoice online</a></p>`
+      ? `<p><a href="${shareLink}" style="color:#2563eb;">View ${docWord.toLowerCase()} online</a></p>`
       : "";
     const dueDateHtml = dueDate ? `<tr><td style="padding:4px 8px;color:#6b7280;">Due date</td><td style="padding:4px 8px;">${dueDate}</td></tr>` : "";
 
@@ -1769,13 +1789,13 @@ adminRoutes.post(
   <h2 style="margin-top:0;">${companyName}</h2>
   ${messageHtml}
   <table style="border-collapse:collapse;margin:16px 0;width:auto;">
-    <tr><td style="padding:4px 8px;color:#6b7280;">Invoice</td><td style="padding:4px 8px;font-weight:600;">#${invoiceNumber}</td></tr>
+    <tr><td style="padding:4px 8px;color:#6b7280;">${docWord}</td><td style="padding:4px 8px;font-weight:600;">#${invoiceNumber}</td></tr>
     <tr><td style="padding:4px 8px;color:#6b7280;">Issue date</td><td style="padding:4px 8px;">${issueDate}</td></tr>
     ${dueDateHtml}
     <tr><td style="padding:4px 8px;color:#6b7280;">Total</td><td style="padding:4px 8px;font-weight:600;">${total}</td></tr>
   </table>
   ${shareLinkHtml}
-  <p style="color:#6b7280;font-size:13px;">The invoice PDF is attached to this email.</p>
+  <p style="color:#6b7280;font-size:13px;">The ${docWord.toLowerCase()} PDF is attached to this email.</p>
 </body>
 </html>`;
 
@@ -1783,7 +1803,7 @@ adminRoutes.post(
       companyName,
       "",
       message || "",
-      `Invoice: #${invoiceNumber}`,
+      `${docWord}: #${invoiceNumber}`,
       `Issue date: ${issueDate}`,
       dueDate ? `Due date: ${dueDate}` : "",
       `Total: ${total}`,
@@ -1797,7 +1817,7 @@ adminRoutes.post(
         htmlBody,
         textBody,
         attachment: {
-          filename: `invoice-${invoiceNumber}.pdf`,
+          filename: documentFileName(invoice, invoice.id, "pdf"),
           content: pdfBuffer,
           mimeType: "application/pdf",
         },
@@ -1862,9 +1882,7 @@ adminRoutes.get(
     return new Response(xml, {
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
-        "Content-Disposition": `attachment; filename="invoice-${
-          invoice.invoiceNumber || id
-        }.xml"`,
+        "Content-Disposition": `attachment; filename="${documentFileName(invoice, id, "xml")}"`,
       },
     });
   },
@@ -1925,9 +1943,7 @@ adminRoutes.get(
     return new Response(xml, {
       headers: {
         "Content-Type": `${profile.mediaType}; charset=utf-8`,
-        "Content-Disposition": `attachment; filename="invoice-${
-          invoice.invoiceNumber || id
-        }.${profile.fileExtension}"`,
+        "Content-Disposition": `attachment; filename="${documentFileName(invoice, id, profile.fileExtension)}"`,
       },
     });
   },

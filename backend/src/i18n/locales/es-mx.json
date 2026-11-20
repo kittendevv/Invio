@@ -35,5 +35,12 @@
   "bankAccountPrefix": "Banco:",
   "paymentTermsLabel": "Condiciones de pago",
   "notesHeading": "Notas",
-  "thankYouNote": "Gracias por tu preferencia."
+  "thankYouNote": "Gracias por tu preferencia.",
+  "creditNoteTitle": "Nota de crédito",
+  "creditNoteNumberLabel": "Número de nota de crédito",
+  "creditNoteNumberShortLabel": "Nota de crédito N.º",
+  "creditNoteDateLabel": "Fecha de la nota de crédito",
+  "creditNoteItemsHeading": "Detalle de la nota de crédito",
+  "creditNoteSummaryHeading": "Resumen de la nota de crédito",
+  "creditNoteReferenceLabel": "Corresponde a la factura"
 }

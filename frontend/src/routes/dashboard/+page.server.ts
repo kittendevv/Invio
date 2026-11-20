@@ -20,6 +20,7 @@ type Invoice = {
   currency?: string;
   status?: "draft" | "sent" | "complete" | "paid" | "overdue" | "voided";
   total?: number;
+  documentType?: string;
   items?: StatsInvoiceItem[];
 };
 
@@ -81,6 +82,12 @@ export const load: PageServerLoad = async ({ locals, cookies, url }) => {
       overdue: invoices.filter((i) => i.status === "overdue").length,
       voided: invoices.filter((i) => i.status === "voided").length,
     };
+    // Invoices still waiting for payment (an issued credit note is not one)
+    const openInvoices = invoices.filter(
+      (i) =>
+        (i.status === "sent" || i.status === "overdue") &&
+        i.documentType !== "credit_note",
+    ).length;
 
     const recent = allInvoices
       .slice()
@@ -97,6 +104,7 @@ export const load: PageServerLoad = async ({ locals, cookies, url }) => {
       counts: { invoices: invoices.length, customers: customers.length },
       money: { billed, paid, outstanding, currency },
       status,
+      openInvoices,
       recent,
       sales,
       years,

@@ -5,7 +5,11 @@ import { getInvoiceByShareToken } from "../controllers/invoices.ts";
 import { getSettings } from "../controllers/settings.ts";
 import { getCustomerById } from "../controllers/customers.ts";
 import { resolveInvoiceRenderLocale } from "../i18n/translations.ts";
-import { buildInvoiceHTML, generatePDF } from "../utils/pdf.ts";
+import {
+  buildInvoiceHTML,
+  documentFileName,
+  generatePDF,
+} from "../utils/pdf.ts";
 import { generateUBLInvoiceXML } from "../utils/ubl.ts"; // legacy direct import (will be removed after deprecation window)
 import { generateInvoiceXML, listXMLProfiles } from "../utils/xmlProfiles.ts";
 import { resolveInDataRoot } from "../utils/dataPaths.ts";
@@ -207,9 +211,7 @@ publicRoutes.get("/public/invoices/:share_token/pdf", async (c) => {
     return new Response(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="invoice-${
-          invoice.invoiceNumber || shareToken
-        }.pdf"`,
+        "Content-Disposition": `attachment; filename="${documentFileName(invoice, shareToken, "pdf")}"`,
         "X-Robots-Tag": "noindex",
         ...(hasAttachment
           ? {
@@ -365,9 +367,7 @@ publicRoutes.get("/public/invoices/:share_token/ubl.xml", async (c) => {
   return new Response(xml, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Content-Disposition": `attachment; filename="invoice-${
-        invoice.invoiceNumber || shareToken
-      }.xml"`,
+      "Content-Disposition": `attachment; filename="${documentFileName(invoice, shareToken, "xml")}"`,
       "X-Robots-Tag": "noindex",
     },
   });
@@ -425,9 +425,7 @@ publicRoutes.get("/public/invoices/:share_token/xml", async (c) => {
   return new Response(xml, {
     headers: {
       "Content-Type": `${profile.mediaType}; charset=utf-8`,
-      "Content-Disposition": `attachment; filename="invoice-${
-        invoice.invoiceNumber || shareToken
-      }.${profile.fileExtension}"`,
+      "Content-Disposition": `attachment; filename="${documentFileName(invoice, shareToken, profile.fileExtension)}"`,
       "X-Robots-Tag": "noindex",
     },
   });

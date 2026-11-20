@@ -229,6 +229,10 @@ export function generateFatturaXML(
     </CessionarioCommittente>
   </FatturaElettronicaHeader>`;
 
+  // Credit notes are TD04 and reference the credited invoice
+  const isCreditNote = invoice.documentType === "credit_note";
+  const credited = isCreditNote ? invoice.creditedInvoice : undefined;
+
   const linesXml = invoice.items.map((item, idx) => {
     const qty = Number(item.quantity) || 1;
     const unitPrice = Number(item.unitPrice) || 0;
@@ -254,12 +258,16 @@ export function generateFatturaXML(
   <FatturaElettronicaBody>
     <DatiGenerali>
       <DatiGeneraliDocumento>
-        <TipoDocumento>TD01</TipoDocumento>
+        <TipoDocumento>${isCreditNote ? "TD04" : "TD01"}</TipoDocumento>
         <Divisa>${xmlEscape(currency)}</Divisa>
         <Data>${issueDate}</Data>
         <Numero>${xmlEscape(invoice.invoiceNumber)}</Numero>
-        <Causale>${xmlEscape(invoice.notes || "Fattura")}</Causale>
-      </DatiGeneraliDocumento>
+        <Causale>${xmlEscape(invoice.notes || (isCreditNote ? "Nota di credito" : "Fattura"))}</Causale>
+      </DatiGeneraliDocumento>${credited ? `
+      <DatiFattureCollegate>
+        <IdDocumento>${xmlEscape(credited.invoiceNumber)}</IdDocumento>
+        <Data>${fmtDate(credited.issueDate)}</Data>
+      </DatiFattureCollegate>` : ""}
     </DatiGenerali>
     <DatiBeniServizi>
       ${linesXml}${summary.map((s) => `

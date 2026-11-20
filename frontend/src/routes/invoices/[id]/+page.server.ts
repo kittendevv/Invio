@@ -92,7 +92,17 @@ export const actions: Actions = {
         if (!newId) throw new Error("Failed to duplicate invoice");
         throw redirect(303, `/invoices/${newId}/edit`);
       }
-      if (intent === "unpublish") {
+      if (intent === "credit-note") {
+        const note = await backendPost(
+          `/api/v1/invoices/${id}/credit-note`,
+          locals.authHeader,
+          {},
+        );
+        const newId = note && note.id ? String(note.id) : null;
+        if (!newId) throw new Error("Failed to create credit note");
+        throw redirect(303, `/invoices/${newId}/edit`);
+      }
+            if (intent === "unpublish") {
         await backendPost(
           `/api/v1/invoices/${id}/unpublish`,
           locals.authHeader,
