@@ -42,5 +42,13 @@
   "creditNoteDateLabel": "Data da nota de crédito",
   "creditNoteItemsHeading": "Detalhes da nota de crédito",
   "creditNoteSummaryHeading": "Resumo da nota de crédito",
-  "creditNoteReferenceLabel": "Referente à fatura"
+  "creditNoteReferenceLabel": "Referente à fatura",
+  "quoteTitle": "Orçamento",
+  "quoteNumberLabel": "Número do orçamento",
+  "quoteNumberShortLabel": "Orçamento nº",
+  "quoteDateLabel": "Data do orçamento",
+  "quoteValidUntilLabel": "Válido até",
+  "quoteItemsHeading": "Detalhes do orçamento",
+  "quoteSummaryHeading": "Resumo do orçamento",
+  "quoteBillToHeading": "Preparado para"
 }

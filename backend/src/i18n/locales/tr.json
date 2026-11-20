@@ -42,5 +42,13 @@
   "creditNoteDateLabel": "Dekont Tarihi",
   "creditNoteItemsHeading": "Alacak Dekontu Detayları",
   "creditNoteSummaryHeading": "Alacak Dekontu Özeti",
-  "creditNoteReferenceLabel": "İlgili fatura"
+  "creditNoteReferenceLabel": "İlgili fatura",
+  "quoteTitle": "Teklif",
+  "quoteNumberLabel": "Teklif Numarası",
+  "quoteNumberShortLabel": "Teklif No",
+  "quoteDateLabel": "Teklif Tarihi",
+  "quoteValidUntilLabel": "Geçerlilik Tarihi",
+  "quoteItemsHeading": "Teklif Detayları",
+  "quoteSummaryHeading": "Teklif Özeti",
+  "quoteBillToHeading": "Teklif Sunulan"
 }

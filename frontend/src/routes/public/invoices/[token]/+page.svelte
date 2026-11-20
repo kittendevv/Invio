@@ -17,10 +17,12 @@
   <!-- Minimal Header -->
   <header class="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-6 px-4 py-8 sm:flex-row md:px-8">
     <div class="flex items-center gap-2">
-      <span class="text-base-content/80 text-3xl font-light tracking-tight">{data.isCreditNote ? t("Credit note") : t("Invoice")}</span>
+      <span class="text-base-content/80 text-3xl font-light tracking-tight">{data.isQuote ? t("Quote") : data.isCreditNote ? t("Credit note") : t("Invoice")}</span>
     </div>
 
     <div class="bg-base-100 border-base-200/60 flex flex-wrap items-center justify-center gap-2 rounded-full border p-2 shadow-sm sm:gap-3">
+      <!-- Quotes have no e-invoice XML -->
+      {#if !data.isQuote}
       <div class="dropdown dropdown-end">
         <div tabIndex="-1" role="button" class="btn btn-sm btn-ghost text-base-content/80 hover:bg-base-200/50 rounded-full px-4 font-normal">
           <FileText size={16} class="mr-1 opacity-70" />
@@ -45,6 +47,7 @@
       </div>
 
       <div class="bg-base-200 h-6 w-px"></div>
+      {/if}
 
       <a class="btn btn-sm btn-ghost btn-circle text-base-content/80 hover:bg-base-200/50 tooltip tooltip-bottom" href={htmlUrl} target="_blank" data-tip={t("Open in new tab")}>
         <ExternalLink size={16} />

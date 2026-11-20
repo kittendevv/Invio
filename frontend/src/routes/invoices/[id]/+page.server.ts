@@ -21,6 +21,10 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
     if (invoiceRes.status !== "fulfilled") {
       throw error(404, "Invoice not found");
     }
+    // Quotes have their own pages
+    if (invoiceRes.value?.documentType === "quote") {
+      throw redirect(303, `/quotes/${params.id}`);
+    }
     const settings =
       settingsRes.status === "fulfilled"
         ? (settingsRes.value as Record<string, unknown>)
@@ -36,6 +40,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
       emailEnabled: Boolean(env.SMTP_HOST && env.EMAIL_FROM_ADDRESS),
     };
   } catch (err: any) {
+    if (err && typeof err === "object" && "location" in err) throw err;
     throw error(404, "Invoice not found");
   }
 };

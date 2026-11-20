@@ -8,8 +8,11 @@
   import ProductCombobox from "$lib/components/ProductCombobox.svelte";
   import CustomerCombobox from "$lib/components/CustomerCombobox.svelte";
 
-  let { data, invoice = null, formId = "invoice-editor-form" } = $props();
+  // documentType "quote" turns the editor into the quote editor (numbering,
+  // statuses, "valid until" instead of a due date, quote API and pages).
+  let { data, invoice = null, formId = "invoice-editor-form", documentType = "invoice" } = $props();
   let initInvoice = untrack(() => invoice);
+  const quoteMode = untrack(() => (invoice?.documentType ?? documentType) === "quote");
   let initSettings = untrack(() => data?.settings || {});
   let initNextInvoiceNumber = untrack(() => data?.nextInvoiceNumber || "");
   let t = getContext("i18n") as (key: string) => string;
@@ -24,7 +27,15 @@
 
   // Today's date in the user's timezone (toISOString() would give the UTC date).
   const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const isoLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = isoLocal(now);
+  // New quotes are valid for the configured number of days (default 30)
+  const defaultValidUntil = (() => {
+    const days = Number.parseInt(String(initSettings.quoteValidityDays ?? ""), 10);
+    const d = new Date(now);
+    d.setDate(d.getDate() + (Number.isFinite(days) && days >= 0 ? days : 30));
+    return isoLocal(d);
+  })();
   
   let form = $state({
     customerId: initInvoice?.customerId || "",
@@ -32,7 +43,7 @@
     currency: editorCurrency(initInvoice, initSettings),
     status: initInvoice?.status || "draft",
     issueDate: initInvoice?.issueDate ? new Date(initInvoice.issueDate).toISOString().slice(0, 10) : today,
-    dueDate: initInvoice?.dueDate ? new Date(initInvoice.dueDate).toISOString().slice(0, 10) : "",
+    dueDate: initInvoice?.dueDate ? new Date(initInvoice.dueDate).toISOString().slice(0, 10) : quoteMode ? defaultValidUntil : "",
     taxMode: taxModeOf(initInvoice?.items),
     taxRate: initInvoice?.taxRate || 0,
     pricesIncludeTax: initInvoice?.pricesIncludeTax ? "true" : "false",
@@ -87,7 +98,7 @@
     if (initInvoice || invoiceNumberTouched) return;
     const customerId = form.customerId;
     const qs = customerId ? `?customerId=${encodeURIComponent(customerId)}` : "";
-    fetch(`/api/v1/invoices/next-number${qs}`)
+    fetch(`/api/v1/${quoteMode ? "quotes" : "invoices"}/next-number${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.next && !invoiceNumberTouched) form.invoiceNumber = d.next;
@@ -229,7 +240,8 @@
           notes: i.notes,
         })),
       };
-      const url = initInvoice ? "/api/v1/invoices/" + initInvoice.id : "/api/v1/invoices";
+      // Saved documents (invoices and quotes) are updated through /invoices/:id
+      const url = initInvoice ? "/api/v1/invoices/" + initInvoice.id : quoteMode ? "/api/v1/quotes" : "/api/v1/invoices";
       const res = await fetch(url, {
         method: initInvoice ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,7 +250,7 @@
 
       if (!res.ok) {
         const d = await res.text();
-        let errMsg = "Failed to save invoice";
+        let errMsg = quoteMode ? "Failed to save quote" : "Failed to save invoice";
         try {
           const j = JSON.parse(d);
           errMsg = j.error || errMsg;
@@ -253,7 +265,7 @@
       } catch (err: any) {
         throw new Error("JSON parse error: " + err.message + " (Response: " + txt.substring(0, 100) + " )");
       }
-      goto("/invoices/" + result.id);
+      goto((quoteMode ? "/quotes/" : "/invoices/") + result.id);
     } catch (err: any) {
       error = err.message;
     } finally {
@@ -283,9 +295,9 @@
 
     <label class="form-control">
       <div class="label">
-        <span class="label-text">{t("Invoice Number")}</span>
+        <span class="label-text">{quoteMode ? t("Quote Number") : t("Invoice Number")}</span>
       </div>
-      <input type="text" class="input input-bordered w-full" placeholder={t("e.g. INV-2025-001")} bind:value={form.invoiceNumber} oninput={() => (invoiceNumberTouched = true)} />
+      <input type="text" class="input input-bordered w-full" placeholder={quoteMode ? "QUO-2025-001" : t("e.g. INV-2025-001")} bind:value={form.invoiceNumber} oninput={() => (invoiceNumberTouched = true)} />
     </label>
 
     <label class="form-control">
@@ -300,12 +312,20 @@
         <span class="label-text">{t("Status")}</span>
       </div>
       <select class="select select-bordered w-full" bind:value={form.status}>
-        <option value="draft">{t("Draft")}</option>
-        <option value="sent">{t("Sent")}</option>
-        <option value="paid">{t("Paid")}</option>
-        <option value="complete">{t("Complete")}</option>
-        <option value="overdue">{t("Overdue")}</option>
-        <option value="voided">{t("Voided")}</option>
+        {#if quoteMode}
+          <option value="draft">{t("Draft")}</option>
+          <option value="sent">{t("Sent")}</option>
+          <option value="accepted">{t("Accepted")}</option>
+          <option value="declined">{t("Declined")}</option>
+          <option value="expired" disabled>{t("Expired")}</option>
+        {:else}
+          <option value="draft">{t("Draft")}</option>
+          <option value="sent">{t("Sent")}</option>
+          <option value="paid">{t("Paid")}</option>
+          <option value="complete">{t("Complete")}</option>
+          <option value="overdue">{t("Overdue")}</option>
+          <option value="voided">{t("Voided")}</option>
+        {/if}
       </select>
     </label>
   </div>
@@ -320,7 +340,7 @@
 
     <label class="form-control">
       <div class="label">
-        <span class="label-text">{t("Due Date")}</span>
+        <span class="label-text">{quoteMode ? t("Valid until") : t("Due Date")}</span>
       </div>
       <input type="date" class="input input-bordered w-full" bind:value={form.dueDate} />
     </label>

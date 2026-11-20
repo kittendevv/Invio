@@ -683,6 +683,21 @@
                 </p>
               </label>
             {/if}
+            <label class="form-control"
+              ><div class="label">
+                <span class="label-text">{t("Quote Number Pattern")}</span>
+              </div>
+              <input type="text" class="input input-bordered w-full" bind:value={settings.quoteNumberPattern} disabled={!canUpdateSettings} placeholder={"QUO-{YYYY}-{SEQ}"} />
+              <p class="mt-2 text-xs opacity-70">
+                {t("Quotes always have their own counter, so they never use up invoice numbers. Use a different prefix than invoices.")}
+              </p>
+            </label>
+            <label class="form-control"
+              ><div class="label">
+                <span class="label-text">{t("Quotes are valid for (days)")}</span>
+              </div>
+              <input type="number" min="0" step="1" class="input input-bordered w-full" bind:value={settings.quoteValidityDays} disabled={!canUpdateSettings} placeholder="30" />
+            </label>
           </div>
         {:else if section === "xml"}
           <div class="space-y-4">

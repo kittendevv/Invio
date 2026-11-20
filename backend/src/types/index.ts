@@ -42,7 +42,7 @@ export interface Invoice {
   issueDate: Date;
   dueDate?: Date;
   currency: string;
-  status: "draft" | "sent" | "complete" | "paid" | "overdue" | "voided";
+  status: InvoiceStatus;
 
   // Totals
   subtotal: number;
@@ -68,6 +68,8 @@ export interface Invoice {
   documentType?: DocumentType;
   // For credit notes: the invoice being credited
   creditedInvoiceId?: string;
+  // For invoices created from a quote: that quote
+  quoteId?: string;
 
   // System fields
   shareToken: string;
@@ -75,7 +77,24 @@ export interface Invoice {
   updatedAt: Date;
 }
 
-export type DocumentType = "invoice" | "credit_note";
+export type DocumentType = "invoice" | "credit_note" | "quote";
+
+/**
+ * Stored statuses plus derived ones: "overdue" (sent invoice past its due
+ * date) and "expired" (sent quote past its valid-until date). Quotes use
+ * draft, sent, accepted, declined and expired; the others are for invoices
+ * and credit notes.
+ */
+export type InvoiceStatus =
+  | "draft"
+  | "sent"
+  | "complete"
+  | "paid"
+  | "overdue"
+  | "voided"
+  | "accepted"
+  | "declined"
+  | "expired";
 
 /** Short reference to another invoice (credited invoice, or credit notes of an invoice). */
 export interface InvoiceReference {
@@ -193,6 +212,7 @@ export interface InvoiceTax {
 
 export const RESOURCES = [
   "invoices",
+  "quotes",
   "customers",
   "products",
   "templates",
@@ -219,6 +239,7 @@ export type Action = (typeof ACTIONS)[number];
 /** Defines which actions are meaningful for each resource */
 export const RESOURCE_ACTIONS: Record<Resource, readonly Action[]> = {
   invoices: ["read", "create", "update", "delete", "publish", "void", "export"],
+  quotes: ["read", "create", "update", "delete", "publish", "export"],
   customers: ["read", "create", "update", "delete"],
   products: ["read", "create", "update", "delete"],
   templates: ["read", "create", "update", "delete", "install"],
@@ -274,7 +295,7 @@ export interface CreateInvoiceRequest {
   issueDate?: string | Date;
   dueDate?: string | Date;
   currency?: string;
-  status?: "draft" | "sent" | "complete" | "paid" | "overdue" | "voided";
+  status?: InvoiceStatus;
 
   // Totals (optional, will be calculated if not provided)
   discountAmount?: number;
@@ -365,6 +386,10 @@ export interface InvoiceWithDetails extends Invoice {
   creditedInvoice?: InvoiceReference;
   // For invoices: credit notes issued against it
   creditNotes?: InvoiceReference[];
+  // For invoices created from a quote: the quote
+  quote?: InvoiceReference;
+  // For quotes: invoices created from it
+  invoices?: InvoiceReference[];
 }
 
 // Template rendering context
@@ -389,6 +414,7 @@ export interface TemplateContext {
   status: string;
   // Credit notes: flag and the credited invoice
   isCreditNote?: boolean;
+  isQuote?: boolean;
   creditedInvoiceNumber?: string;
   creditedInvoiceDate?: string;
 

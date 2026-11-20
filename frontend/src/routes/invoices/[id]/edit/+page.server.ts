@@ -25,6 +25,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     if (invoiceRes.status !== "fulfilled") {
       throw error(404, "Invoice not found");
     }
+    // Quotes have their own pages
+    if ((invoiceRes.value as { documentType?: string })?.documentType === "quote") {
+      throw redirect(303, `/quotes/${params.id}/edit`);
+    }
 
     const settings =
       settingsRes.status === "fulfilled"
@@ -43,6 +47,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         ).toLowerCase() === "true",
     };
   } catch (err: any) {
+    if (err && typeof err === "object" && "location" in err) throw err;
     throw error(404, err?.message || "Invoice not found");
   }
 };
