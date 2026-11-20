@@ -137,6 +137,8 @@
   "Invoice No": "Nº da fatura",
   "Invoice Number": "Número da Fatura",
   "Invoice Number Pattern": "Padrão de Número da Fatura",
+  "Start counter at": "Iniciar contador em",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "O próximo número nunca é menor que este valor. Use-o para iniciar uma nova faixa de numeração ou para continuar a partir do seu software anterior. Aplica-se a {SEQ}.",
   "Invoice data hidden": "Dados da fatura ocultos",
   "Invoice published": "Fatura publicada",
   "Invoice sent successfully": "Fatura enviada com sucesso",
