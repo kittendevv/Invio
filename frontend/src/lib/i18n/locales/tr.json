@@ -352,5 +352,18 @@
   "or": "veya",
   "Country": "Ülke",
   "Select country": "Ülke seçin",
-  "No countries found": "Ülke bulunamadı"
+  "No countries found": "Ülke bulunamadı",
+  "Year": "Yıl",
+  "All time": "Tüm zamanlar",
+  "Sales": "Satışlar",
+  "Sales per month": "Aylık satışlar",
+  "Sales by country": "Ülkelere göre satışlar",
+  "Top countries": "En çok satış yapılan ülkeler",
+  "Top customers": "En iyi müşteriler",
+  "No sales in this period": "Bu dönemde satış yok",
+  "No country set": "Ülke belirtilmemiş",
+  "No sales": "Satış yok",
+  "Month": "Ay",
+  "Top products": "En çok satan ürünler",
+  "Top days of the week": "Haftanın en iyi günleri"
 }

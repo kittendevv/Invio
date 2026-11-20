@@ -352,5 +352,18 @@
   "or": "ou",
   "Country": "País",
   "Select country": "Selecionar país",
-  "No countries found": "Nenhum país encontrado"
+  "No countries found": "Nenhum país encontrado",
+  "Year": "Ano",
+  "All time": "Todo o período",
+  "Sales": "Vendas",
+  "Sales per month": "Vendas por mês",
+  "Sales by country": "Vendas por país",
+  "Top countries": "Principais países",
+  "Top customers": "Principais clientes",
+  "No sales in this period": "Nenhuma venda neste período",
+  "No country set": "Nenhum país definido",
+  "No sales": "Nenhuma venda",
+  "Month": "Mês",
+  "Top products": "Principais produtos",
+  "Top days of the week": "Principais dias da semana"
 }
