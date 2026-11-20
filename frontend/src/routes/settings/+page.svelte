@@ -659,6 +659,9 @@
                   <code>{"{MM}"}</code>, <code>{"{DD}"}</code>,
                   <code>{"{DATE}"}</code>, <code>{"{RAND4}"}</code>
                 </p>
+                <p>
+                  <code>{"{SEQ:10}"}</code> / <code>{"{CSEQ:10}"}</code> (counter padded to 10 digits, e.g. 0000000001)
+                </p>
               </div>
             </label>
           </div>

@@ -858,14 +858,43 @@ function expandPatternTokens(pattern: string): string {
     .replace(/\{RAND4\}/g, () => cryptoRandom(4));
 }
 
+/**
+ * Counter placeholders: {SEQ} / {CSEQ}, optionally with a minimum width,
+ * e.g. {SEQ:10} -> 0000000001 (some countries require a fixed digit count).
+ */
+const SEQ_TOKEN = /\{SEQ(?::(\d{1,2}))?\}/;
+const CSEQ_TOKEN = /\{CSEQ(?::(\d{1,2}))?\}/;
+const DEFAULT_SEQ_WIDTH = 3;
+const MAX_SEQ_WIDTH = 20;
+
+/** True when a pattern contains a placeholder that needs a real (non-draft) number. */
+export function patternNeedsAllocation(pattern: string): boolean {
+  return SEQ_TOKEN.test(pattern) || CSEQ_TOKEN.test(pattern) ||
+    /\{CNUM\}/.test(pattern);
+}
+
+/** Replace every occurrence of a counter token, padded to its own width. */
+function fillCounter(
+  pattern: string,
+  token: RegExp,
+  value: number,
+): string {
+  return pattern.replace(new RegExp(token.source, "g"), (_m, w?: string) => {
+    const width = w
+      ? Math.min(Math.max(parseInt(w, 10), 1), MAX_SEQ_WIDTH)
+      : DEFAULT_SEQ_WIDTH;
+    return String(value).padStart(width, "0");
+  });
+}
+
 export function getNextInvoiceNumber(customerId?: string): string {
   const cfg = getNumberingSettings();
 
   // Advanced pattern mode (when enabled and configured)
   if (cfg.pattern && cfg.enabled) {
     const expanded = expandPatternTokens(cfg.pattern);
-    const hasSeq = /\{SEQ\}/.test(cfg.pattern);
-    const hasClientSeq = /\{CSEQ\}/.test(cfg.pattern);
+    const hasSeq = SEQ_TOKEN.test(cfg.pattern);
+    const hasClientSeq = CSEQ_TOKEN.test(cfg.pattern);
     const hasCustomerNum = /\{CNUM\}/.test(cfg.pattern);
     if (!hasSeq && !hasClientSeq && !hasCustomerNum) return expanded;
 
@@ -885,15 +914,15 @@ export function getNextInvoiceNumber(customerId?: string): string {
     }
     if (hasSeq) {
       // {SEQ}: global counter, shared across all customers
-      const prefix = result.split("{SEQ}")[0];
+      const prefix = result.split(SEQ_TOKEN)[0];
       const next = findMaxSequence(prefix) + 1;
-      result = result.replace(/\{SEQ\}/g, String(next).padStart(3, "0"));
+      result = fillCounter(result, SEQ_TOKEN, next);
     }
     if (hasClientSeq) {
       // {CSEQ}: counter scoped to this customer's own invoices
-      const prefix = result.split("{CSEQ}")[0];
+      const prefix = result.split(CSEQ_TOKEN)[0];
       const next = findMaxSequence(prefix, customerId) + 1;
-      result = result.replace(/\{CSEQ\}/g, String(next).padStart(3, "0"));
+      result = fillCounter(result, CSEQ_TOKEN, next);
     }
     return result;
   }
