@@ -1,6 +1,7 @@
 // Generator for Factur-X / ZUGFeRD 2.2 BASIC profile
 // Perfect for uncluttered, self-hosted invoicing without the bloat
 import { BusinessSettings, InvoiceWithDetails } from "../types/index.ts";
+import { computeXmlTotals, priceDecimals } from "./xmlTotals.ts";
 
 type Maybe<T> = T | undefined | null;
 
@@ -28,10 +29,6 @@ function decimals(n: number): string {
 
 function safeCurrency(biz?: BusinessSettings, invCurrency?: string): string {
   return (invCurrency || biz?.currency || "EUR").toUpperCase();
-}
-
-function taxCategoryId(rate: number): string { 
-  return rate > 0 ? "S" : "Z"; 
 }
 
 function splitAddressLines(address?: string): { lineOne?: string; lineTwo?: string; city?: string; zip?: string } {
@@ -92,19 +89,9 @@ export function generateFacturX22XML(
   // EN16931 (COMFORT) profile - required for XRechnung compliance
   const profileUrn = "urn:cen.eu:en16931:2017";
 
-  // With prices including tax the subtotal is gross: the net is total - tax
-  const netTotal = invoice.pricesIncludeTax
-    ? Math.max(0, Math.round(((invoice.total || 0) - (invoice.taxAmount || 0)) * 100) / 100)
-    : Math.max(0, (invoice.subtotal || 0) - (invoice.discountAmount || 0));
-
-  // Tax summary
-  const taxes = (invoice.taxes && invoice.taxes.length > 0)
-    ? invoice.taxes.map((t) => ({ percent: Number(t.percent) || 0, taxable: Number(t.taxableAmount) || 0, amount: Number(t.taxAmount) || 0 }))
-    : ((invoice.taxAmount || 0) > 0 ? [{
-      percent: Number(invoice.taxRate) || 0,
-      taxable: netTotal,
-      amount: Number(invoice.taxAmount) || 0,
-    }] : []);
+  // Line net amounts, VAT breakdown, discount allowances and totals that
+  // satisfy the EN 16931 calculation rules
+  const totals = computeXmlTotals(invoice);
 
   const docContext = `
   <rsm:ExchangedDocumentContext>
@@ -186,7 +173,6 @@ export function generateFacturX22XML(
   </ram:ApplicableHeaderTradeAgreement>`;
 
   const paymentTerms = business.paymentTerms || invoice.paymentTerms;
-  const headerTaxes = (taxes.length > 0 ? taxes : [{ percent: 0, taxable: Math.max(0, (invoice.subtotal || 0) - (invoice.discountAmount || 0)), amount: 0 }]);
 
   // BASIC: Simplified settlement with correct element order
   const headerSettlement = `
@@ -199,31 +185,43 @@ export function generateFacturX22XML(
         <ram:IBANID>${xmlEscape(business.bankAccount)}</ram:IBANID>
       </ram:PayeePartyCreditorFinancialAccount>
     </ram:SpecifiedTradeSettlementPaymentMeans>` : ""}
-    ${headerTaxes.map((t) => `
+    ${totals.taxes.map((t) => `
     <ram:ApplicableTradeTax>
-      <ram:CalculatedAmount>${decimals(t.amount)}</ram:CalculatedAmount>
+      <ram:CalculatedAmount>${decimals(t.tax)}</ram:CalculatedAmount>
       <ram:TypeCode>VAT</ram:TypeCode>
-      <ram:BasisAmount>${decimals(t.taxable)}</ram:BasisAmount>
-      <ram:CategoryCode>${taxCategoryId(t.percent)}</ram:CategoryCode>
-      <ram:RateApplicablePercent>${decimals(t.percent)}</ram:RateApplicablePercent>
+      <ram:BasisAmount>${decimals(t.basis)}</ram:BasisAmount>
+      <ram:CategoryCode>${t.category}</ram:CategoryCode>
+      <ram:RateApplicablePercent>${decimals(t.rate)}</ram:RateApplicablePercent>
     </ram:ApplicableTradeTax>`).join("")}
+    ${totals.allowanceCharges.map((a) => `
+    <ram:SpecifiedTradeAllowanceCharge>
+      <ram:ChargeIndicator><udt:Indicator>${a.charge}</udt:Indicator></ram:ChargeIndicator>
+      <ram:ActualAmount>${decimals(a.amount)}</ram:ActualAmount>
+      ${a.reasonCode ? `<ram:ReasonCode>${a.reasonCode}</ram:ReasonCode>` : ""}
+      <ram:Reason>${xmlEscape(a.reason)}</ram:Reason>
+      <ram:CategoryTradeTax>
+        <ram:TypeCode>VAT</ram:TypeCode>
+        <ram:CategoryCode>${a.category}</ram:CategoryCode>
+        <ram:RateApplicablePercent>${decimals(a.rate)}</ram:RateApplicablePercent>
+      </ram:CategoryTradeTax>
+    </ram:SpecifiedTradeAllowanceCharge>`).join("")}
     ${paymentTerms ? `<ram:SpecifiedTradePaymentTerms><ram:Description>${xmlEscape(paymentTerms)}</ram:Description></ram:SpecifiedTradePaymentTerms>` : ""}
     <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-      <ram:LineTotalAmount>${decimals(invoice.subtotal)}</ram:LineTotalAmount>
-      <ram:TaxBasisTotalAmount>${decimals(netTotal)}</ram:TaxBasisTotalAmount>
-      <ram:TaxTotalAmount currencyID="${xmlEscape(currency)}">${decimals(invoice.taxAmount)}</ram:TaxTotalAmount>
-      <ram:GrandTotalAmount>${decimals(invoice.total)}</ram:GrandTotalAmount>
-      <ram:DuePayableAmount>${decimals(invoice.total)}</ram:DuePayableAmount>
+      <ram:LineTotalAmount>${decimals(totals.lineTotal)}</ram:LineTotalAmount>
+      ${totals.chargeTotal ? `<ram:ChargeTotalAmount>${decimals(totals.chargeTotal)}</ram:ChargeTotalAmount>` : ""}
+      ${totals.allowanceTotal ? `<ram:AllowanceTotalAmount>${decimals(totals.allowanceTotal)}</ram:AllowanceTotalAmount>` : ""}
+      <ram:TaxBasisTotalAmount>${decimals(totals.taxBasisTotal)}</ram:TaxBasisTotalAmount>
+      <ram:TaxTotalAmount currencyID="${xmlEscape(currency)}">${decimals(totals.taxTotal)}</ram:TaxTotalAmount>
+      ${totals.roundingAmount ? `<ram:RoundingAmount>${decimals(totals.roundingAmount)}</ram:RoundingAmount>` : ""}
+      <ram:GrandTotalAmount>${decimals(totals.grandTotal)}</ram:GrandTotalAmount>
+      <ram:DuePayableAmount>${decimals(totals.payable)}</ram:DuePayableAmount>
     </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
   </ram:ApplicableHeaderTradeSettlement>`;
 
   // BASIC: Essential line items only
-  const linesXml = invoice.items.map((it, idx) => {
-    const qty = Number(it.quantity) || 0;
-    const unit = Number(it.unitPrice) || 0;
-    const lineTotal = Number(it.lineTotal) || (qty * unit);
-    const lineRate = (it.taxes && it.taxes.length > 0) ? Number(it.taxes[0].percent) || 0 : (Number(invoice.taxRate) || 0);
-    
+  const linesXml = totals.lines.map((line, idx) => {
+    const it = line.item;
+
     return `
     <ram:IncludedSupplyChainTradeLineItem>
       <ram:AssociatedDocumentLineDocument>
@@ -234,20 +232,20 @@ export function generateFacturX22XML(
       </ram:SpecifiedTradeProduct>
       <ram:SpecifiedLineTradeAgreement>
         <ram:NetPriceProductTradePrice>
-          <ram:ChargeAmount>${decimals(unit)}</ram:ChargeAmount>
+          <ram:ChargeAmount>${priceDecimals(line.netUnitPrice)}</ram:ChargeAmount>
         </ram:NetPriceProductTradePrice>
       </ram:SpecifiedLineTradeAgreement>
       <ram:SpecifiedLineTradeDelivery>
-        <ram:BilledQuantity unitCode="C62">${decimals(qty)}</ram:BilledQuantity>
+        <ram:BilledQuantity unitCode="C62">${decimals(line.quantity)}</ram:BilledQuantity>
       </ram:SpecifiedLineTradeDelivery>
       <ram:SpecifiedLineTradeSettlement>
         <ram:ApplicableTradeTax>
           <ram:TypeCode>VAT</ram:TypeCode>
-          <ram:CategoryCode>${taxCategoryId(lineRate)}</ram:CategoryCode>
-          <ram:RateApplicablePercent>${decimals(lineRate)}</ram:RateApplicablePercent>
+          <ram:CategoryCode>${line.category}</ram:CategoryCode>
+          <ram:RateApplicablePercent>${decimals(line.rate)}</ram:RateApplicablePercent>
         </ram:ApplicableTradeTax>
         <ram:SpecifiedTradeSettlementLineMonetarySummation>
-          <ram:LineTotalAmount>${decimals(lineTotal)}</ram:LineTotalAmount>
+          <ram:LineTotalAmount>${decimals(line.netAmount)}</ram:LineTotalAmount>
         </ram:SpecifiedTradeSettlementLineMonetarySummation>
       </ram:SpecifiedLineTradeSettlement>
     </ram:IncludedSupplyChainTradeLineItem>`;

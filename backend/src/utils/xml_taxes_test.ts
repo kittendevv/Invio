@@ -315,6 +315,176 @@ Deno.test("UBL gives the buyer a legal name (BR-07)", () => {
   );
 });
 
+// ---- EN 16931 calculation rules (BR-CO-10/13/15/16, BR-S-08/BR-Z-08) ----
+
+const num = (s: string | undefined) => Number(s ?? 0);
+const cents = (n: number) => Math.round(n * 100);
+
+function first(xml: string, re: RegExp): string | undefined {
+  return xml.match(re)?.[1];
+}
+
+type Sums = {
+  lines: Array<[string, number]>; // [rate, net amount]
+  allowances: Array<[string, number]>; // [rate, signed amount]
+  taxes: Array<[string, number]>; // [rate, basis]
+  lineTotal: number;
+  allowanceTotal: number;
+  chargeTotal: number;
+  taxBasis: number;
+  taxTotal: number;
+  grand: number;
+  rounding: number;
+  payable: number;
+};
+
+function ublSums(xml: string): Sums {
+  const body = xml.split("<cac:InvoiceLine>");
+  const header = body[0];
+  const monetary = header.split("<cac:LegalMonetaryTotal>")[1];
+  return {
+    lines: body.slice(1).map((l) => [
+      first(l, /<cbc:Percent>([^<]*)</)!,
+      num(first(l, /<cbc:LineExtensionAmount[^>]*>([^<]*)</)),
+    ]),
+    allowances: all(
+      header,
+      /<cac:AllowanceCharge>\s*<cbc:ChargeIndicator>(true|false)<[\s\S]*?<cbc:Amount[^>]*>([^<]*)<[\s\S]*?<cbc:Percent>([^<]*)</g,
+    ).map(([c, amount, rate]) => [rate, (c === "true" ? 1 : -1) * num(amount)]),
+    taxes: ublSubtotals(xml).map(([, rate, basis]) => [rate, num(basis)]),
+    lineTotal: num(first(monetary, /<cbc:LineExtensionAmount[^>]*>([^<]*)</)),
+    allowanceTotal: num(first(monetary, /<cbc:AllowanceTotalAmount[^>]*>([^<]*)</)),
+    chargeTotal: num(first(monetary, /<cbc:ChargeTotalAmount[^>]*>([^<]*)</)),
+    taxBasis: num(first(monetary, /<cbc:TaxExclusiveAmount[^>]*>([^<]*)</)),
+    taxTotal: num(first(header, /<cac:TaxTotal>\s*<cbc:TaxAmount[^>]*>([^<]*)</)),
+    grand: num(first(monetary, /<cbc:TaxInclusiveAmount[^>]*>([^<]*)</)),
+    rounding: num(first(monetary, /<cbc:PayableRoundingAmount[^>]*>([^<]*)</)),
+    payable: num(first(monetary, /<cbc:PayableAmount[^>]*>([^<]*)</)),
+  };
+}
+
+function facturxSums(xml: string): Sums {
+  const lineItems = xml.split("<ram:IncludedSupplyChainTradeLineItem>").slice(1)
+    .map((l) => l.split("</ram:IncludedSupplyChainTradeLineItem>")[0]);
+  const settlement = xml.split("<ram:ApplicableHeaderTradeSettlement>")[1];
+  const summation = settlement.split(
+    "<ram:SpecifiedTradeSettlementHeaderMonetarySummation>",
+  )[1];
+  return {
+    lines: lineItems.map((l) => [
+      first(l, /<ram:RateApplicablePercent>([^<]*)</)!,
+      num(first(l, /<ram:LineTotalAmount>([^<]*)</)),
+    ]),
+    allowances: all(
+      settlement,
+      /<ram:SpecifiedTradeAllowanceCharge>[\s\S]*?<udt:Indicator>(true|false)<[\s\S]*?<ram:ActualAmount>([^<]*)<[\s\S]*?<ram:RateApplicablePercent>([^<]*)</g,
+    ).map(([c, amount, rate]) => [rate, (c === "true" ? 1 : -1) * num(amount)]),
+    taxes: facturxTaxes(xml).map(([, rate, basis]) => [rate, num(basis)]),
+    lineTotal: num(first(summation, /<ram:LineTotalAmount>([^<]*)</)),
+    allowanceTotal: num(first(summation, /<ram:AllowanceTotalAmount>([^<]*)</)),
+    chargeTotal: num(first(summation, /<ram:ChargeTotalAmount>([^<]*)</)),
+    taxBasis: num(first(summation, /<ram:TaxBasisTotalAmount>([^<]*)</)),
+    taxTotal: num(first(summation, /<ram:TaxTotalAmount[^>]*>([^<]*)</)),
+    grand: num(first(summation, /<ram:GrandTotalAmount>([^<]*)</)),
+    rounding: num(first(summation, /<ram:RoundingAmount>([^<]*)</)),
+    payable: num(first(summation, /<ram:DuePayableAmount>([^<]*)</)),
+  };
+}
+
+function assertEn16931Sums(label: string, s: Sums, payable: number): void {
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + cents(b), 0);
+  const check = (rule: string, a: number, b: number) => {
+    if (a !== b) throw new Error(`${label} ${rule}: ${a / 100} != ${b / 100}`);
+  };
+  check("BR-CO-10", cents(s.lineTotal), sum(s.lines.map(([, n]) => n)));
+  check(
+    "BR-CO-13",
+    cents(s.taxBasis),
+    cents(s.lineTotal) - cents(s.allowanceTotal) + cents(s.chargeTotal),
+  );
+  check("BR-CO-15", cents(s.grand), cents(s.taxBasis) + cents(s.taxTotal));
+  check("BR-CO-16", cents(s.payable), cents(s.grand) + cents(s.rounding));
+  check("payable", cents(s.payable), cents(payable));
+  for (const [rate, basis] of s.taxes) {
+    check(
+      `BR-S-08 (${rate}%)`,
+      cents(basis),
+      sum(s.lines.filter(([r]) => r === rate).map(([, n]) => n)) +
+        sum(s.allowances.filter(([r]) => r === rate).map(([, n]) => n)),
+    );
+  }
+}
+
+Deno.test("UBL and Factur-X amounts satisfy the EN 16931 calculation rules", () => {
+  const L = (quantity: number, unitPrice: number, percent?: number) => ({
+    description: "X",
+    quantity,
+    unitPrice,
+    taxes: percent === undefined ? [] : [{ percent }],
+  });
+  const scenarios: Record<string, Record<string, unknown>> = {
+    "discount amount": { discountAmount: 20, items: [L(2, 100, 19)] },
+    "discount percentage": {
+      discountPercentage: 10,
+      items: [L(3, 33.33, 19), L(1, 9.99, 19)],
+    },
+    "two rates with discount": {
+      discountAmount: 15,
+      items: [L(1, 100, 19), L(3, 12.5, 7)],
+    },
+    "untaxed line with discount": {
+      discountAmount: 10,
+      items: [L(1, 100, 19), L(1, 50)],
+    },
+    "prices including tax": {
+      pricesIncludeTax: true,
+      items: [L(3, 11.9, 19), L(1, 10.7, 7)],
+    },
+    "prices including tax with discount": {
+      pricesIncludeTax: true,
+      discountAmount: 5,
+      items: [L(3, 11.9, 19), L(1, 10.7, 7)],
+    },
+    "prices including tax with rounding": {
+      pricesIncludeTax: true,
+      items: [L(7, 3.33, 19), L(3, 1.99, 19)],
+    },
+  };
+  for (const [name, data] of Object.entries(scenarios)) {
+    const invoice = stored(
+      createInvoice({ customerId: customer.id, ...data } as never).id,
+    );
+    assertEn16931Sums(
+      `UBL ${name}`,
+      ublSums(generateUBLInvoiceXML(invoice, business)),
+      invoice.total,
+    );
+    assertEn16931Sums(
+      `Factur-X ${name}`,
+      facturxSums(generateFacturX22XML(invoice, business)),
+      invoice.total,
+    );
+  }
+});
+
+Deno.test("A discount is a document-level allowance in UBL and Factur-X", () => {
+  const invoice = stored(createInvoice({
+    customerId: customer.id,
+    discountAmount: 20,
+    items: [{ description: "A", quantity: 2, unitPrice: 100, taxes: [{ percent: 19 }] }],
+  }).id);
+
+  const ubl = ublSums(generateUBLInvoiceXML(invoice, business));
+  assertEquals(
+    [ubl.lineTotal, ubl.allowanceTotal, ubl.taxBasis, ubl.allowances],
+    [200, 20, 180, [["19.00", -20]]],
+  );
+
+  const facturx = facturxSums(generateFacturX22XML(invoice, business));
+  assertEquals(
+    [facturx.lineTotal, facturx.allowanceTotal, facturx.taxBasis, facturx.allowances],
+    [200, 20, 180, [["19.00", -20]]],
+  );
 Deno.test("UBL writes the city and postal code of both parties", () => {
   const berlin = createCustomer({
     name: "Berlin Customer",

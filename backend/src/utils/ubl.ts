@@ -7,6 +7,7 @@
 // configured, the XML remains valid but omits those elements.
 
 import { BusinessSettings, InvoiceWithDetails } from "../types/index.ts";
+import { computeXmlTotals, priceDecimals } from "./xmlTotals.ts";
 
 type Maybe<T> = T | undefined | null;
 
@@ -48,18 +49,6 @@ function decimals(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2);
 }
 
-type TaxSummaryRow = { percent: number; taxable: number; amount: number };
-
-// Lines without taxes are not in the stored per-rate summary: add their base
-// at 0% (net total minus the taxed bases) so the summary covers every line
-function addUntaxedBase(rows: TaxSummaryRow[], netTotal: number): void {
-  const r2 = (n: number) => Math.round(n * 100) / 100;
-  const base = r2(netTotal - rows.reduce((s, r) => s + r.taxable, 0));
-  const zero = rows.find((r) => r.percent === 0);
-  if (zero) zero.taxable = r2(zero.taxable + base);
-  else rows.unshift({ percent: 0, taxable: base, amount: 0 });
-}
-
 function safeCurrency(biz: BusinessSettings, invCurrency?: string): string {
   return (invCurrency || biz.currency || "USD").toUpperCase();
 }
@@ -95,11 +84,6 @@ function splitAddress(addr?: string): {
     out.countryCode = cc.length === 3 ? cc.slice(0, 2) : cc;
   }
   return out;
-}
-
-function taxCategoryId(rate: number): string {
-  // Simplified: Standard (S) for >0, Zero (Z) for 0
-  return rate > 0 ? "S" : "Z";
 }
 
 export interface UBLGenerationOptions {
@@ -140,33 +124,9 @@ export function generateUBLInvoiceXML(
   if (invoice.customer.city) buyerAddress.city = invoice.customer.city;
   if (invoice.customer.postalCode) buyerAddress.postalZone = invoice.customer.postalCode;
 
-  const taxRate = Number(invoice.taxRate || 0);
-  // With prices including tax the subtotal is gross: the net is total - tax
-  const netTotal = invoice.pricesIncludeTax
-    ? Math.round((invoice.total - invoice.taxAmount) * 100) / 100
-    : invoice.subtotal - invoice.discountAmount;
-
-  // With per-line taxes the invoice-level taxRate is 0: take each line's rate
-  // and the stored per-rate summary instead (as Factur-X does)
-  const hasLineTaxes = invoice.items.some((it) => (it.taxes?.length || 0) > 0);
-  const lineRate = (item: InvoiceWithDetails["items"][number]): number =>
-    hasLineTaxes ? Number(item.taxes?.[0]?.percent) || 0 : taxRate;
-  const storedTaxes = hasLineTaxes ? invoice.taxes ?? [] : [];
-  const lineSummary = storedTaxes.length > 0;
-  const taxSubtotals = lineSummary
-    ? storedTaxes.map((t) => ({
-      percent: Number(t.percent) || 0,
-      taxable: Number(t.taxableAmount) || 0,
-      amount: Number(t.taxAmount) || 0,
-    }))
-    : [{
-      percent: taxRate,
-      taxable: netTotal,
-      amount: invoice.taxAmount,
-    }];
-  if (lineSummary && invoice.items.some((it) => !(it.taxes?.length))) {
-    addUntaxedBase(taxSubtotals, invoice.total - invoice.taxAmount);
-  }
+  // Line net amounts, VAT breakdown, discount allowances and totals that
+  // satisfy the EN 16931 calculation rules
+  const totals = computeXmlTotals(invoice);
 
   // Header with Note in correct position (before DocumentCurrencyCode)
   const notes = invoice.notes || business.defaultNotes;
@@ -243,16 +203,30 @@ export function generateUBLInvoiceXML(
     <cbc:Note>${xmlEscape(business.paymentTerms || invoice.paymentTerms)}</cbc:Note>
   </cac:PaymentTerms>` : "";
 
+  // Document-level allowances (discount) and charges per VAT rate
+  const allowanceCharges = totals.allowanceCharges.map((a) => `
+  <cac:AllowanceCharge>
+    <cbc:ChargeIndicator>${a.charge}</cbc:ChargeIndicator>
+    ${a.reasonCode ? `<cbc:AllowanceChargeReasonCode>${a.reasonCode}</cbc:AllowanceChargeReasonCode>` : ""}
+    <cbc:AllowanceChargeReason>${xmlEscape(a.reason)}</cbc:AllowanceChargeReason>
+    ${amountTag("Amount", a.amount, currency)}
+    <cac:TaxCategory>
+      <cbc:ID>${a.category}</cbc:ID>
+      <cbc:Percent>${decimals(a.rate)}</cbc:Percent>
+      <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+    </cac:TaxCategory>
+  </cac:AllowanceCharge>`).join("");
+
   // Tax total
   const taxTotal = `
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(invoice.taxAmount)}</cbc:TaxAmount>${taxSubtotals.map((t) => `
+    <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(totals.taxTotal)}</cbc:TaxAmount>${totals.taxes.map((t) => `
     <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="${xmlEscape(currency)}">${decimals(t.taxable)}</cbc:TaxableAmount>
-      <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(t.amount)}</cbc:TaxAmount>
+      <cbc:TaxableAmount currencyID="${xmlEscape(currency)}">${decimals(t.basis)}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="${xmlEscape(currency)}">${decimals(t.tax)}</cbc:TaxAmount>
       <cac:TaxCategory>
-        <cbc:ID>${taxCategoryId(t.percent)}</cbc:ID>
-        <cbc:Percent>${decimals(t.percent)}</cbc:Percent>
+        <cbc:ID>${t.category}</cbc:ID>
+        <cbc:Percent>${decimals(t.rate)}</cbc:Percent>
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:TaxCategory>
     </cac:TaxSubtotal>`).join("")}
@@ -261,27 +235,30 @@ export function generateUBLInvoiceXML(
   // Monetary totals
   const legalMonetaryTotal = `
   <cac:LegalMonetaryTotal>
-    ${amountTag("LineExtensionAmount", invoice.subtotal - invoice.discountAmount, currency)}
-    ${amountTag("TaxExclusiveAmount", netTotal, currency)}
-    ${amountTag("TaxInclusiveAmount", invoice.total, currency)}
-    ${amountTag("PayableAmount", invoice.total, currency)}
+    ${amountTag("LineExtensionAmount", totals.lineTotal, currency)}
+    ${amountTag("TaxExclusiveAmount", totals.taxBasisTotal, currency)}
+    ${amountTag("TaxInclusiveAmount", totals.grandTotal, currency)}
+    ${totals.allowanceTotal ? amountTag("AllowanceTotalAmount", totals.allowanceTotal, currency) : ""}
+    ${totals.chargeTotal ? amountTag("ChargeTotalAmount", totals.chargeTotal, currency) : ""}
+    ${totals.roundingAmount ? amountTag("PayableRoundingAmount", totals.roundingAmount, currency) : ""}
+    ${amountTag("PayableAmount", totals.payable, currency)}
   </cac:LegalMonetaryTotal>`;
 
   // Invoice lines
-  const lines = invoice.items.map((item, idx) => `
+  const lines = totals.lines.map((line, idx) => `
     <cac:InvoiceLine>
       <cbc:ID>${idx + 1}</cbc:ID>
-  <cbc:InvoicedQuantity unitCode="EA">${decimals(item.quantity)}</cbc:InvoicedQuantity>
-      <cbc:LineExtensionAmount currencyID="${xmlEscape(currency)}">${decimals(item.lineTotal)}</cbc:LineExtensionAmount>
+  <cbc:InvoicedQuantity unitCode="EA">${decimals(line.quantity)}</cbc:InvoicedQuantity>
+      <cbc:LineExtensionAmount currencyID="${xmlEscape(currency)}">${decimals(line.netAmount)}</cbc:LineExtensionAmount>
       <cac:Item>
-        <cbc:Name>${xmlEscape(item.description)}</cbc:Name>
+        <cbc:Name>${xmlEscape(line.item.description)}</cbc:Name>
         <cac:ClassifiedTaxCategory>
-          <cbc:ID>${taxCategoryId(lineRate(item))}</cbc:ID>
-          <cbc:Percent>${decimals(lineRate(item))}</cbc:Percent>
+          <cbc:ID>${line.category}</cbc:ID>
+          <cbc:Percent>${decimals(line.rate)}</cbc:Percent>
           <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
         </cac:ClassifiedTaxCategory>
       </cac:Item>
-      <cac:Price><cbc:PriceAmount currencyID="${xmlEscape(currency)}">${decimals(item.unitPrice)}</cbc:PriceAmount></cac:Price>
+      <cac:Price><cbc:PriceAmount currencyID="${xmlEscape(currency)}">${priceDecimals(line.netUnitPrice)}</cbc:PriceAmount></cac:Price>
     </cac:InvoiceLine>`).join("");
 
   // Assemble XML with correct element order
@@ -295,6 +272,7 @@ export function generateUBLInvoiceXML(
   ${customerParty}
   ${paymentMeans}
   ${paymentTermsXml}
+  ${allowanceCharges}
   ${taxTotal}
   ${legalMonetaryTotal}
   ${lines}
