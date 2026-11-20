@@ -46,6 +46,23 @@ export type InvoiceLabels = {
   paymentTermsLabel: string;
   notesHeading: string;
   thankYouNote: string;
+  // Used instead of the invoice labels above when rendering a credit note
+  creditNoteTitle: string;
+  creditNoteNumberLabel: string;
+  creditNoteNumberShortLabel: string;
+  creditNoteDateLabel: string;
+  creditNoteItemsHeading: string;
+  creditNoteSummaryHeading: string;
+  creditNoteReferenceLabel: string;
+  // Used instead of the invoice labels when rendering a quote
+  quoteTitle: string;
+  quoteNumberLabel: string;
+  quoteNumberShortLabel: string;
+  quoteDateLabel: string;
+  quoteValidUntilLabel: string;
+  quoteItemsHeading: string;
+  quoteSummaryHeading: string;
+  quoteBillToHeading: string;
 };
 
 const REQUIRED_KEYS = [
@@ -86,6 +103,21 @@ const REQUIRED_KEYS = [
 "paymentTermsLabel",
 "notesHeading",
 "thankYouNote",
+"creditNoteTitle",
+"creditNoteNumberLabel",
+"creditNoteNumberShortLabel",
+"creditNoteDateLabel",
+"creditNoteItemsHeading",
+"creditNoteSummaryHeading",
+"creditNoteReferenceLabel",
+"quoteTitle",
+"quoteNumberLabel",
+"quoteNumberShortLabel",
+"quoteDateLabel",
+"quoteValidUntilLabel",
+"quoteItemsHeading",
+"quoteSummaryHeading",
+"quoteBillToHeading",
 ] as const;
 
 function coerceLabels(locale: string, raw: unknown): InvoiceLabels {

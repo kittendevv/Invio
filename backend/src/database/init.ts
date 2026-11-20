@@ -203,6 +203,14 @@ function ensureInvoiceColumns(database: DB): void {
     "TEXT DEFAULT 'line'",
   );
   addColumnIfMissing(database, "invoices", "locale", "TEXT");
+  addColumnIfMissing(
+    database,
+    "invoices",
+    "document_type",
+    "TEXT DEFAULT 'invoice'",
+  );
+  addColumnIfMissing(database, "invoices", "credited_invoice_id", "TEXT");
+  addColumnIfMissing(database, "invoices", "quote_id", "TEXT");
 }
 
 function ensureInvoiceItemColumns(database: DB): void {
@@ -403,13 +411,14 @@ function migrateInvoicesForVoided(database: DB): void {
   const createSql = checkSql.length > 0 ? String(checkSql[0][0]) : "";
   if (
     !createSql ||
-    (createSql.includes("voided") && createSql.includes("complete"))
+    (createSql.includes("voided") && createSql.includes("complete") &&
+      createSql.includes("accepted"))
   ) {
     return;
   }
 
   console.log(
-    "Migrating invoices table to support 'voided' and 'complete' statuses",
+    "Migrating invoices table to support the 'voided', 'complete', 'accepted' and 'declined' statuses",
   );
 
   const itemCountBefore = Number(
@@ -428,7 +437,7 @@ function migrateInvoicesForVoided(database: DB): void {
         issue_date DATE NOT NULL,
         due_date DATE,
         currency TEXT DEFAULT 'USD',
-        status TEXT CHECK(status IN ('draft','sent','complete','paid','overdue','voided')) DEFAULT 'draft',
+        status TEXT CHECK(status IN ('draft','sent','complete','paid','overdue','voided','accepted','declined')) DEFAULT 'draft',
         subtotal NUMERIC NOT NULL DEFAULT 0,
         discount_amount NUMERIC DEFAULT 0,
         discount_percentage NUMERIC DEFAULT 0,
@@ -442,7 +451,10 @@ function migrateInvoicesForVoided(database: DB): void {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         prices_include_tax BOOLEAN DEFAULT 0,
         rounding_mode TEXT DEFAULT 'line',
-        locale TEXT
+        locale TEXT,
+        document_type TEXT DEFAULT 'invoice',
+        credited_invoice_id TEXT,
+        quote_id TEXT
       )
     `);
 
@@ -475,7 +487,7 @@ function migrateInvoicesForVoided(database: DB): void {
 
     database.execute("COMMIT");
     console.log(
-      " Migrated invoices table to support 'voided' and 'complete' statuses",
+      " Migrated invoices table to support the new statuses",
     );
   } catch (migErr) {
     database.execute("ROLLBACK");
@@ -858,15 +870,21 @@ function expandPatternTokens(pattern: string): string {
     .replace(/\{RAND4\}/g, () => cryptoRandom(4));
 }
 
-export function getNextInvoiceNumber(customerId?: string): string {
+export function getNextInvoiceNumber(
+  customerId?: string,
+  patternOverride?: string,
+): string {
   const cfg = getNumberingSettings();
+  // A pattern override (e.g. a separate credit note pattern) always applies,
+  // independent of the invoice numbering switch.
+  const pattern = patternOverride ?? (cfg.enabled ? cfg.pattern : undefined);
 
   // Advanced pattern mode (when enabled and configured)
-  if (cfg.pattern && cfg.enabled) {
-    const expanded = expandPatternTokens(cfg.pattern);
-    const hasSeq = /\{SEQ\}/.test(cfg.pattern);
-    const hasClientSeq = /\{CSEQ\}/.test(cfg.pattern);
-    const hasCustomerNum = /\{CNUM\}/.test(cfg.pattern);
+  if (pattern) {
+    const expanded = expandPatternTokens(pattern);
+    const hasSeq = /\{SEQ\}/.test(pattern);
+    const hasClientSeq = /\{CSEQ\}/.test(pattern);
+    const hasCustomerNum = /\{CNUM\}/.test(pattern);
     if (!hasSeq && !hasClientSeq && !hasCustomerNum) return expanded;
 
     let result = expanded;
@@ -904,6 +922,41 @@ export function getNextInvoiceNumber(customerId?: string): string {
     : `${cfg.prefix}-`;
   const next = findMaxSequence(base) + 1;
   return `${base}${String(next).padStart(cfg.pad, "0")}`;
+}
+
+export const DEFAULT_CREDIT_NOTE_PATTERN = "CN-{YYYY}-{SEQ}";
+export const DEFAULT_QUOTE_PATTERN = "QUO-{YYYY}-{SEQ}";
+
+/**
+ * Final number for a document leaving draft. Credit notes share the invoice
+ * counter unless the "creditNoteNumbering" setting is "separate"; then they
+ * use their own pattern, and with it their own {SEQ} counter.
+ */
+export function getNextDocumentNumber(
+  documentType: string | undefined,
+  customerId?: string,
+): string {
+  // Quotes always have their own pattern and counter: they are not tax
+  // documents and must never use up (or leave gaps in) invoice numbers.
+  if (documentType === "quote") {
+    const rows = getDatabase().query(
+      "SELECT value FROM settings WHERE key = 'quoteNumberPattern' LIMIT 1",
+    ) as [string][];
+    const pattern = String(rows[0]?.[0] ?? "").trim() || DEFAULT_QUOTE_PATTERN;
+    return getNextInvoiceNumber(customerId, pattern);
+  }
+  if (documentType === "credit_note") {
+    const rows = getDatabase().query(
+      "SELECT key, value FROM settings WHERE key IN ('creditNoteNumbering','creditNoteNumberPattern')",
+    ) as [string, string][];
+    const m = new Map(rows);
+    if ((m.get("creditNoteNumbering") || "shared") === "separate") {
+      const pattern = (m.get("creditNoteNumberPattern") || "").trim() ||
+        DEFAULT_CREDIT_NOTE_PATTERN;
+      return getNextInvoiceNumber(customerId, pattern);
+    }
+  }
+  return getNextInvoiceNumber(customerId);
 }
 
 //

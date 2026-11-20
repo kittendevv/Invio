@@ -35,5 +35,20 @@
   "bankAccountPrefix": "Banco:",
   "paymentTermsLabel": "Condições de Pagamento",
   "notesHeading": "Observações",
-  "thankYouNote": "Obrigado pela preferência!"
+  "thankYouNote": "Obrigado pela preferência!",
+  "creditNoteTitle": "Nota de crédito",
+  "creditNoteNumberLabel": "Número da nota de crédito",
+  "creditNoteNumberShortLabel": "Nota de crédito nº",
+  "creditNoteDateLabel": "Data da nota de crédito",
+  "creditNoteItemsHeading": "Detalhes da nota de crédito",
+  "creditNoteSummaryHeading": "Resumo da nota de crédito",
+  "creditNoteReferenceLabel": "Referente à fatura",
+  "quoteTitle": "Orçamento",
+  "quoteNumberLabel": "Número do orçamento",
+  "quoteNumberShortLabel": "Orçamento nº",
+  "quoteDateLabel": "Data do orçamento",
+  "quoteValidUntilLabel": "Válido até",
+  "quoteItemsHeading": "Detalhes do orçamento",
+  "quoteSummaryHeading": "Resumo do orçamento",
+  "quoteBillToHeading": "Preparado para"
 }

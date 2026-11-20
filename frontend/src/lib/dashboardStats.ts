@@ -1,5 +1,8 @@
+import { isCreditNote, signedTotal } from "./utils/documentType";
+
 export type StatsInvoice = {
   id: string;
+  documentType?: string;
   customerId?: string;
   customer?: { name?: string; countryCode?: string };
   issueDate?: string | Date;
@@ -150,24 +153,28 @@ export function computeSalesStats(
   let total = 0;
 
   for (const inv of sales) {
-    const amount = inv.total || 0;
+    // Credit notes reduce sales; counts are numbers of invoices, so they
+    // don't count a credit note as another sale.
+    const amount = signedTotal(inv);
+    const sign = isCreditNote(inv) ? -1 : 1;
+    const n = sign > 0 ? 1 : 0;
     total += amount;
 
     const month = issueMonth(inv)!;
     const m = byMonth.get(month) || { month, total: 0, count: 0 };
     m.total += amount;
-    m.count++;
+    m.count += n;
     byMonth.set(month, m);
 
     const code = (inv.customer?.countryCode || "").trim().toUpperCase();
     if (code) {
       const c = byCountry.get(code) || { code, total: 0, count: 0 };
       c.total += amount;
-      c.count++;
+      c.count += n;
       byCountry.set(code, c);
     } else {
       unknownCountry.total += amount;
-      unknownCountry.count++;
+      unknownCountry.count += n;
     }
 
     const customerKey = inv.customerId || inv.customer?.name || "";
@@ -179,7 +186,7 @@ export function computeSalesStats(
         count: 0,
       };
       c.total += amount;
-      c.count++;
+      c.count += n;
       byCustomer.set(customerKey, c);
     }
 
@@ -187,7 +194,7 @@ export function computeSalesStats(
     if (day !== null) {
       const d = byWeekday.get(day) || { day, total: 0, count: 0 };
       d.total += amount;
-      d.count++;
+      d.count += n;
       byWeekday.set(day, d);
     }
 
@@ -204,10 +211,10 @@ export function computeSalesStats(
         total: 0,
         count: 0,
       };
-      p.quantity += item.quantity || 0;
-      p.total += item.lineTotal || 0;
+      p.quantity += sign * (item.quantity || 0);
+      p.total += sign * (item.lineTotal || 0);
       if (!seen.has(key)) {
-        p.count++;
+        p.count += n;
         seen.add(key);
       }
       byProduct.set(key, p);

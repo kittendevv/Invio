@@ -35,5 +35,20 @@
   "bankAccountPrefix": "Bank:",
   "paymentTermsLabel": "Payment Terms",
   "notesHeading": "Notes",
-  "thankYouNote": "Thank you for your business!"
+  "thankYouNote": "Thank you for your business!",
+  "creditNoteTitle": "Credit Note",
+  "creditNoteNumberLabel": "Credit Note Number",
+  "creditNoteNumberShortLabel": "Credit Note #",
+  "creditNoteDateLabel": "Credit Note Date",
+  "creditNoteItemsHeading": "Credit Note Details",
+  "creditNoteSummaryHeading": "Credit Note Summary",
+  "creditNoteReferenceLabel": "Credit note for invoice",
+  "quoteTitle": "Quote",
+  "quoteNumberLabel": "Quote Number",
+  "quoteNumberShortLabel": "Quote #",
+  "quoteDateLabel": "Quote Date",
+  "quoteValidUntilLabel": "Valid Until",
+  "quoteItemsHeading": "Quote Details",
+  "quoteSummaryHeading": "Quote Summary",
+  "quoteBillToHeading": "Prepared For"
 }

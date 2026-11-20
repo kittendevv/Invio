@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import {
   createInvoice,
   deleteInvoice,
+  createCreditNote,
+  createInvoiceFromQuote,
   duplicateInvoice,
   getInvoiceById,
   getInvoiceItemSummaries,
@@ -66,7 +68,11 @@ import {
   updateCategory,
   updateUnit,
 } from "../controllers/productOptions.ts";
-import { buildInvoiceHTML, generatePDF } from "../utils/pdf.ts";
+import {
+  buildInvoiceHTML,
+  documentFileName,
+  generatePDF,
+} from "../utils/pdf.ts";
 import { isEmailConfigured, sendEmail } from "../utils/email.ts";
 import { generateUBLInvoiceXML } from "../utils/ubl.ts"; // legacy direct import
 import { generateInvoiceXML, listXMLProfiles } from "../utils/xmlProfiles.ts";
@@ -76,7 +82,10 @@ import {
 } from "../i18n/translations.ts";
 
 import { resetDatabaseFromDemo } from "../database/init.ts";
-import { getNextInvoiceNumber } from "../database/init.ts";
+import {
+  getNextDocumentNumber,
+  getNextInvoiceNumber,
+} from "../database/init.ts";
 import { isDemoMode } from "../utils/env.ts";
 import {
   normalizeStoredLogoReference,
@@ -86,6 +95,7 @@ import {
 import {
   getAuthUser,
   requireAdminAuth,
+  requireDocumentPermission,
   requirePermission,
 } from "../middleware/auth.ts";
 import {
@@ -331,8 +341,9 @@ adminRoutes.post(
   },
 );
 
-adminRoutes.get("/invoices", requirePermission("invoices", "read"), (c) => {
-  const invoices = getInvoices();
+// deno-lint-ignore no-explicit-any
+function listDocuments(c: any, quotes: boolean) {
+  const invoices = getInvoices({ quotes });
 
   // Look up payment methods for paid and complete invoices — complete invoices
   // were previously paid and their payment method should remain visible.
@@ -369,9 +380,79 @@ adminRoutes.get("/invoices", requirePermission("invoices", "read"), (c) => {
     } as unknown;
   });
   return c.json(list);
-});
+}
 
-adminRoutes.get("/invoices/:id", requirePermission("invoices", "read"), (c) => {
+adminRoutes.get(
+  "/invoices",
+  requirePermission("invoices", "read"),
+  (c) => listDocuments(c, false),
+);
+
+// Quote routes. A quote is a document like an invoice, so editing, sending,
+// PDF/HTML, email and deleting go through the /invoices/:id routes (which
+// check the "quotes" permissions for quotes); listing, creating and the
+// quote-only actions live here.
+adminRoutes.use("/quotes/*", requireAdminAuth);
+adminRoutes.use("/quotes", requireAdminAuth);
+adminRoutes.get(
+  "/quotes",
+  requirePermission("quotes", "read"),
+  (c) => listDocuments(c, true),
+);
+adminRoutes.get(
+  "/quotes/next-number",
+  requirePermission("quotes", "create"),
+  (c) => {
+    const customerId = c.req.query("customerId") || undefined;
+    return c.json({ next: getNextDocumentNumber("quote", customerId) });
+  },
+);
+adminRoutes.post(
+  "/quotes",
+  requirePermission("quotes", "create"),
+  async (c) => {
+    const data = await c.req.json();
+    try {
+      return c.json(createInvoice(data, "quote"));
+    } catch (e) {
+      const msg = String(e);
+      return c.json({ error: msg }, /already exists/i.test(msg) ? 409 : 400);
+    }
+  },
+);
+for (const [path, status] of [["accept", "accepted"], ["decline", "declined"]]) {
+  adminRoutes.post(
+    `/quotes/:id/${path}`,
+    requirePermission("quotes", "update"),
+    async (c) => {
+      const id = c.req.param("id");
+      const quote = getInvoiceById(id);
+      if (!quote || quote.documentType !== "quote") {
+        return c.json({ error: "Quote not found" }, 404);
+      }
+      try {
+        return c.json(await updateInvoice(id, { status }));
+      } catch (e) {
+        return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
+      }
+    },
+  );
+}
+adminRoutes.post(
+  "/quotes/:id/invoice",
+  requirePermission("quotes", "read"),
+  requirePermission("invoices", "create"),
+  async (c) => {
+    try {
+      return c.json(await createInvoiceFromQuote(c.req.param("id")));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return c.json({ error: msg }, /not found/i.test(msg) ? 404 : 400);
+    }
+  },
+);
+
+adminRoutes.get("/invoices/:id", requireDocumentPermission("read"), (c) => {
   const id = c.req.param("id");
   const invoice = getInvoiceById(id);
   if (!invoice) {
@@ -389,7 +470,7 @@ adminRoutes.get("/invoices/:id", requirePermission("invoices", "read"), (c) => {
 
 adminRoutes.put(
   "/invoices/:id",
-  requirePermission("invoices", "update"),
+  requireDocumentPermission("update"),
   async (c) => {
     const id = c.req.param("id");
     const data = await c.req.json();
@@ -408,7 +489,7 @@ adminRoutes.put(
 
 adminRoutes.delete(
   "/invoices/:id",
-  requirePermission("invoices", "delete"),
+  requireDocumentPermission("delete"),
   async (c) => {
     const id = c.req.param("id");
     try {
@@ -422,7 +503,7 @@ adminRoutes.delete(
 
 adminRoutes.post(
   "/invoices/:id/publish",
-  requirePermission("invoices", "publish"),
+  requireDocumentPermission("publish"),
   async (c) => {
     const id = c.req.param("id");
     try {
@@ -436,7 +517,7 @@ adminRoutes.post(
 
 adminRoutes.post(
   "/invoices/:id/unpublish",
-  requirePermission("invoices", "publish"),
+  requireDocumentPermission("publish"),
   async (c) => {
     const id = c.req.param("id");
     const result = await unpublishInvoice(id);
@@ -446,7 +527,7 @@ adminRoutes.post(
 
 adminRoutes.post(
   "/invoices/:id/duplicate",
-  requirePermission("invoices", "create"),
+  requireDocumentPermission("create"),
   async (c) => {
     const id = c.req.param("id");
     const copy = await duplicateInvoice(id);
@@ -456,8 +537,23 @@ adminRoutes.post(
 );
 
 adminRoutes.post(
+  "/invoices/:id/credit-note",
+  requireDocumentPermission("create"),
+  async (c) => {
+    const id = c.req.param("id");
+    try {
+      const note = await createCreditNote(id);
+      return c.json(note);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return c.json({ error: msg }, /not found/i.test(msg) ? 404 : 400);
+    }
+  },
+);
+
+adminRoutes.post(
   "/invoices/:id/void",
-  requirePermission("invoices", "void"),
+  requireDocumentPermission("void"),
   async (c) => {
     const id = c.req.param("id");
     try {
@@ -1412,7 +1508,7 @@ adminRoutes.get(
 // Authenticated HTML/PDF generation for invoices by ID (no share token required)
 adminRoutes.get(
   "/invoices/:id/html",
-  requirePermission("invoices", "read"),
+  requireDocumentPermission("read"),
   async (c) => {
     const id = c.req.param("id");
     const invoice = getInvoiceById(id);
@@ -1504,7 +1600,7 @@ adminRoutes.get(
 
 adminRoutes.get(
   "/invoices/:id/pdf",
-  requirePermission("invoices", "export"),
+  requireDocumentPermission("export"),
   async (c) => {
     const id = c.req.param("id");
     const invoice = getInvoiceById(id);
@@ -1615,9 +1711,7 @@ adminRoutes.get(
       return new Response(pdfBuffer, {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="invoice-${
-            invoice.invoiceNumber || id
-          }.pdf"`,
+          "Content-Disposition": `attachment; filename="${documentFileName(invoice, id, "pdf")}"`,
           ...(hasAttachment
             ? {
               "X-Embedded-XML": "true",
@@ -1637,7 +1731,7 @@ adminRoutes.get(
 // Send invoice via email (SMTP2GO)
 adminRoutes.post(
   "/invoices/:id/send-email",
-  requirePermission("invoices", "export"),
+  requireDocumentPermission("export"),
   async (c) => {
     if (!isEmailConfigured()) {
       return c.json(
@@ -1741,6 +1835,13 @@ adminRoutes.post(
     // Build email body
     const companyName = businessSettings.companyName;
     const invoiceNumber = invoice.invoiceNumber || invoice.id;
+    const isCreditNote = invoice.documentType === "credit_note";
+    const isQuote = invoice.documentType === "quote";
+    const docWord = isCreditNote
+      ? "Credit note"
+      : isQuote
+      ? "Quote"
+      : "Invoice";
     const total = `${Number(invoice.total || 0).toFixed(2)} ${invoice.currency || ""}`.trim();
     const issueDate = invoice.issueDate
       ? new Date(invoice.issueDate).toISOString().slice(0, 10)
@@ -1758,9 +1859,10 @@ adminRoutes.post(
       ? `<p style="white-space:pre-wrap;">${message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
       : "";
     const shareLinkHtml = shareLink
-      ? `<p><a href="${shareLink}" style="color:#2563eb;">View invoice online</a></p>`
+      ? `<p><a href="${shareLink}" style="color:#2563eb;">View ${docWord.toLowerCase()} online</a></p>`
       : "";
-    const dueDateHtml = dueDate ? `<tr><td style="padding:4px 8px;color:#6b7280;">Due date</td><td style="padding:4px 8px;">${dueDate}</td></tr>` : "";
+    const dueLabel = isQuote ? "Valid until" : "Due date";
+    const dueDateHtml = dueDate ? `<tr><td style="padding:4px 8px;color:#6b7280;">${dueLabel}</td><td style="padding:4px 8px;">${dueDate}</td></tr>` : "";
 
     const htmlBody = `<!DOCTYPE html>
 <html>
@@ -1769,13 +1871,13 @@ adminRoutes.post(
   <h2 style="margin-top:0;">${companyName}</h2>
   ${messageHtml}
   <table style="border-collapse:collapse;margin:16px 0;width:auto;">
-    <tr><td style="padding:4px 8px;color:#6b7280;">Invoice</td><td style="padding:4px 8px;font-weight:600;">#${invoiceNumber}</td></tr>
+    <tr><td style="padding:4px 8px;color:#6b7280;">${docWord}</td><td style="padding:4px 8px;font-weight:600;">#${invoiceNumber}</td></tr>
     <tr><td style="padding:4px 8px;color:#6b7280;">Issue date</td><td style="padding:4px 8px;">${issueDate}</td></tr>
     ${dueDateHtml}
     <tr><td style="padding:4px 8px;color:#6b7280;">Total</td><td style="padding:4px 8px;font-weight:600;">${total}</td></tr>
   </table>
   ${shareLinkHtml}
-  <p style="color:#6b7280;font-size:13px;">The invoice PDF is attached to this email.</p>
+  <p style="color:#6b7280;font-size:13px;">The ${docWord.toLowerCase()} PDF is attached to this email.</p>
 </body>
 </html>`;
 
@@ -1783,9 +1885,9 @@ adminRoutes.post(
       companyName,
       "",
       message || "",
-      `Invoice: #${invoiceNumber}`,
+      `${docWord}: #${invoiceNumber}`,
       `Issue date: ${issueDate}`,
-      dueDate ? `Due date: ${dueDate}` : "",
+      dueDate ? `${dueLabel}: ${dueDate}` : "",
       `Total: ${total}`,
       shareLink ? `\nView online: ${shareLink}` : "",
     ].filter((l) => l !== undefined).join("\n").trim();
@@ -1797,7 +1899,7 @@ adminRoutes.post(
         htmlBody,
         textBody,
         attachment: {
-          filename: `invoice-${invoiceNumber}.pdf`,
+          filename: documentFileName(invoice, invoice.id, "pdf"),
           content: pdfBuffer,
           mimeType: "application/pdf",
         },
@@ -1815,12 +1917,15 @@ adminRoutes.post(
 // UBL (PEPPOL BIS Billing 3.0) XML for an invoice by ID
 adminRoutes.get(
   "/invoices/:id/ubl.xml",
-  requirePermission("invoices", "export"),
+  requireDocumentPermission("export"),
   async (c) => {
     const id = c.req.param("id");
     const invoice = getInvoiceById(id);
     if (!invoice) {
       return c.json({ message: "Invoice not found" }, 404);
+    }
+    if (invoice.documentType === "quote") {
+      return c.json({ message: "Quotes have no e-invoice XML" }, 400);
     }
 
     const settings = await getSettings();
@@ -1862,9 +1967,7 @@ adminRoutes.get(
     return new Response(xml, {
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
-        "Content-Disposition": `attachment; filename="invoice-${
-          invoice.invoiceNumber || id
-        }.xml"`,
+        "Content-Disposition": `attachment; filename="${documentFileName(invoice, id, "xml")}"`,
       },
     });
   },
@@ -1873,11 +1976,14 @@ adminRoutes.get(
 // Generic XML export selecting an internal profile (?profile=ubl21 or stub-generic)
 adminRoutes.get(
   "/invoices/:id/xml",
-  requirePermission("invoices", "export"),
+  requireDocumentPermission("export"),
   async (c) => {
     const id = c.req.param("id");
     const invoice = getInvoiceById(id);
     if (!invoice) return c.json({ message: "Invoice not found" }, 404);
+    if (invoice.documentType === "quote") {
+      return c.json({ message: "Quotes have no e-invoice XML" }, 400);
+    }
 
     const settings = await getSettings();
     const map = settings.reduce(
@@ -1925,9 +2031,7 @@ adminRoutes.get(
     return new Response(xml, {
       headers: {
         "Content-Type": `${profile.mediaType}; charset=utf-8`,
-        "Content-Disposition": `attachment; filename="invoice-${
-          invoice.invoiceNumber || id
-        }.${profile.fileExtension}"`,
+        "Content-Disposition": `attachment; filename="${documentFileName(invoice, id, profile.fileExtension)}"`,
       },
     });
   },

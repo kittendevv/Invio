@@ -25,7 +25,18 @@ describe("dashboardMoney", () => {
     expect(dashboardMoney([{ status: "voided", total: 400 }]).billed).toBe(0);
   });
 
-  test("no invoices", () => {
+  test("credit notes lower outstanding (issued) or paid (refunded)", () => {
+    const m = dashboardMoney([
+      { status: "sent", total: 100 },
+      { status: "paid", total: 200 },
+      { status: "sent", total: 30, documentType: "credit_note" },
+      { status: "paid", total: 50, documentType: "credit_note" },
+      { status: "draft", total: 999, documentType: "credit_note" },
+    ]);
+    expect(m).toEqual({ billed: 220, paid: 150, outstanding: 70 });
+  });
+
+    test("no invoices", () => {
     expect(dashboardMoney([])).toEqual({ billed: 0, paid: 0, outstanding: 0 });
   });
 });

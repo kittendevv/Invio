@@ -105,7 +105,11 @@ export function generateUBLInvoiceXML(
 ): string {
   const currency = safeCurrency(business, invoice.currency);
   const issueDate = fmtDate(invoice.issueDate) || fmtDate(new Date());
-  const dueDate = fmtDate(invoice.dueDate);
+  // A credit note is its own UBL document type (CreditNote-2) with
+  // CreditNoteLine/CreditedQuantity lines and no header DueDate.
+  const isCreditNote = invoice.documentType === "credit_note";
+  const docName = isCreditNote ? "CreditNote" : "Invoice";
+  const dueDate = isCreditNote ? undefined : fmtDate(invoice.dueDate);
 
   const sellerAddress = splitAddress(business.companyAddress);
   if (!sellerAddress.countryCode && options.sellerCountryCode) {
@@ -136,10 +140,24 @@ export function generateUBLInvoiceXML(
     `<cbc:ID>${xmlEscape(invoice.invoiceNumber)}</cbc:ID>`,
     `<cbc:IssueDate>${issueDate}</cbc:IssueDate>`,
     dueDate ? `<cbc:DueDate>${dueDate}</cbc:DueDate>` : "",
-    `<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>`,
+    isCreditNote
+      ? `<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>`
+      : `<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>`,
     notes ? `<cbc:Note>${xmlEscape(notes)}</cbc:Note>` : "",
     `<cbc:DocumentCurrencyCode>${xmlEscape(currency)}</cbc:DocumentCurrencyCode>`,
   ].filter(Boolean).join("");
+
+  // BG-3: the invoice this credit note corrects
+  const credited = invoice.creditedInvoice;
+  const billingReference = isCreditNote && credited
+    ? `
+  <cac:BillingReference>
+    <cac:InvoiceDocumentReference>
+      <cbc:ID>${xmlEscape(credited.invoiceNumber)}</cbc:ID>
+      ${fmtDate(credited.issueDate) ? `<cbc:IssueDate>${fmtDate(credited.issueDate)}</cbc:IssueDate>` : ""}
+    </cac:InvoiceDocumentReference>
+  </cac:BillingReference>`
+    : "";
 
   // Supplier party
   const supplierParty = `
@@ -245,10 +263,12 @@ export function generateUBLInvoiceXML(
   </cac:LegalMonetaryTotal>`;
 
   // Invoice lines
+  const lineTag = isCreditNote ? "CreditNoteLine" : "InvoiceLine";
+  const qtyTag = isCreditNote ? "CreditedQuantity" : "InvoicedQuantity";
   const lines = totals.lines.map((line, idx) => `
-    <cac:InvoiceLine>
+    <cac:${lineTag}>
       <cbc:ID>${idx + 1}</cbc:ID>
-  <cbc:InvoicedQuantity unitCode="EA">${decimals(line.quantity)}</cbc:InvoicedQuantity>
+  <cbc:${qtyTag} unitCode="EA">${decimals(line.quantity)}</cbc:${qtyTag}>
       <cbc:LineExtensionAmount currencyID="${xmlEscape(currency)}">${decimals(line.netAmount)}</cbc:LineExtensionAmount>
       <cac:Item>
         <cbc:Name>${xmlEscape(line.item.description)}</cbc:Name>
@@ -259,15 +279,16 @@ export function generateUBLInvoiceXML(
         </cac:ClassifiedTaxCategory>
       </cac:Item>
       <cac:Price><cbc:PriceAmount currencyID="${xmlEscape(currency)}">${priceDecimals(line.netUnitPrice)}</cbc:PriceAmount></cac:Price>
-    </cac:InvoiceLine>`).join("");
+    </cac:${lineTag}>`).join("");
 
   // Assemble XML with correct element order
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+<${docName} xmlns="urn:oasis:names:specification:ubl:schema:xsd:${docName}-2"
   xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
   xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
   ${header}
+  ${billingReference}
   ${supplierParty}
   ${customerParty}
   ${paymentMeans}
@@ -276,5 +297,5 @@ export function generateUBLInvoiceXML(
   ${taxTotal}
   ${legalMonetaryTotal}
   ${lines}
-</Invoice>`;
+</${docName}>`;
 }

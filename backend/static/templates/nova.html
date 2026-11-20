@@ -214,6 +214,12 @@
           <span class="inv-v">{{dueDate}}</span>
         </div>
         {{/dueDate}}
+        {{#creditedInvoiceNumber}}
+        <div class="inv-kv-row">
+          <span class="inv-k">{{labels.creditNoteReferenceLabel}}</span>
+          <span class="inv-v">{{creditedInvoiceNumber}}{{#creditedInvoiceDate}} ({{creditedInvoiceDate}}){{/creditedInvoiceDate}}</span>
+        </div>
+        {{/creditedInvoiceNumber}}
       </div>
       <div><span class="status-pill">{{status}}</span></div>
     </div>

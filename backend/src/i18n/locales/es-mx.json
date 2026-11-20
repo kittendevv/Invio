@@ -35,5 +35,20 @@
   "bankAccountPrefix": "Banco:",
   "paymentTermsLabel": "Condiciones de pago",
   "notesHeading": "Notas",
-  "thankYouNote": "Gracias por tu preferencia."
+  "thankYouNote": "Gracias por tu preferencia.",
+  "creditNoteTitle": "Nota de crédito",
+  "creditNoteNumberLabel": "Número de nota de crédito",
+  "creditNoteNumberShortLabel": "Nota de crédito N.º",
+  "creditNoteDateLabel": "Fecha de la nota de crédito",
+  "creditNoteItemsHeading": "Detalle de la nota de crédito",
+  "creditNoteSummaryHeading": "Resumen de la nota de crédito",
+  "creditNoteReferenceLabel": "Corresponde a la factura",
+  "quoteTitle": "Cotización",
+  "quoteNumberLabel": "Número de cotización",
+  "quoteNumberShortLabel": "Cotización N.º",
+  "quoteDateLabel": "Fecha de la cotización",
+  "quoteValidUntilLabel": "Válida hasta",
+  "quoteItemsHeading": "Detalle de la cotización",
+  "quoteSummaryHeading": "Resumen de la cotización",
+  "quoteBillToHeading": "Preparada para"
 }

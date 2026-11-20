@@ -2,6 +2,7 @@
   import { ShieldOff, SquarePen } from "lucide-svelte";
   import { getContext } from "svelte";
   import { formatDate } from "$lib/utils/date";
+  import { isCreditNote, signedTotal } from "$lib/utils/documentType";
 
   let { data } = $props();
 
@@ -70,7 +71,7 @@
       } else if (sortKey === "customer") {
         result = compareText(a.customer?.name, b.customer?.name);
       } else if (sortKey === "total") {
-        result = Number(a.total || 0) - Number(b.total || 0);
+        result = signedTotal(a) - signedTotal(b);
       } else if (sortKey === "status") {
         result = compareText(a.status, b.status);
       } else if (sortKey === "issueDate") {
@@ -176,6 +177,9 @@
           <tr class="hover">
             <td class="font-medium hover:underline">
               <a href={`/invoices/${inv.id}`}>{inv.invoiceNumber}</a>
+              {#if isCreditNote(inv)}
+                <span class="badge badge-outline badge-sm ml-1">{t("Credit note")}</span>
+              {/if}
               <div class="text-xs opacity-70 sm:hidden">
                 {#if inv.issueDate}
                   {formatDate(inv.issueDate, dateFormat)}
@@ -187,7 +191,7 @@
                 {inv.customer?.name || "-"}
               </td>
             {/if}
-            <td class="font-medium">{fmtMoney(inv.currency, inv.total)}</td>
+            <td class="font-medium">{fmtMoney(inv.currency, signedTotal(inv))}</td>
             <td>
               {#if inv.status === "draft"}
                 <div class="badge badge-ghost badge-sm">{t("Draft")}</div>

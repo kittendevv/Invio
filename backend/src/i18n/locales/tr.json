@@ -35,5 +35,20 @@
   "bankAccountPrefix": "Banka:",
   "paymentTermsLabel": "Ödeme Koşulları",
   "notesHeading": "Notlar",
-  "thankYouNote": "İşiniz için teşekkür ederiz!"
+  "thankYouNote": "İşiniz için teşekkür ederiz!",
+  "creditNoteTitle": "Alacak Dekontu",
+  "creditNoteNumberLabel": "Alacak Dekontu Numarası",
+  "creditNoteNumberShortLabel": "Dekont No",
+  "creditNoteDateLabel": "Dekont Tarihi",
+  "creditNoteItemsHeading": "Alacak Dekontu Detayları",
+  "creditNoteSummaryHeading": "Alacak Dekontu Özeti",
+  "creditNoteReferenceLabel": "İlgili fatura",
+  "quoteTitle": "Teklif",
+  "quoteNumberLabel": "Teklif Numarası",
+  "quoteNumberShortLabel": "Teklif No",
+  "quoteDateLabel": "Teklif Tarihi",
+  "quoteValidUntilLabel": "Geçerlilik Tarihi",
+  "quoteItemsHeading": "Teklif Detayları",
+  "quoteSummaryHeading": "Teklif Özeti",
+  "quoteBillToHeading": "Teklif Sunulan"
 }

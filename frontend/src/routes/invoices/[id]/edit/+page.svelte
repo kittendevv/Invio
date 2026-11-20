@@ -10,7 +10,7 @@
 
 <div class="mb-6 flex items-center justify-between gap-3">
   <h1 class="text-2xl font-bold">
-    {t("Edit Invoice")} #{data.invoice?.invoiceNumber || data.invoice?.id}
+    {data.invoice?.documentType === "credit_note" ? t("Edit Credit Note") : t("Edit Invoice")} #{data.invoice?.invoiceNumber || data.invoice?.id}
   </h1>
   <button type="submit" form={formId} class="btn btn-primary">
     <Save size={16} />

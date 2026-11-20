@@ -35,5 +35,20 @@
   "bankAccountPrefix": "Bank:",
   "paymentTermsLabel": "Zahlungsbedingungen",
   "notesHeading": "Notizen",
-  "thankYouNote": "Vielen Dank für Ihr Vertrauen!"
+  "thankYouNote": "Vielen Dank für Ihr Vertrauen!",
+  "creditNoteTitle": "Rechnungskorrektur",
+  "creditNoteNumberLabel": "Nummer der Rechnungskorrektur",
+  "creditNoteNumberShortLabel": "Korrektur-Nr.",
+  "creditNoteDateLabel": "Datum der Rechnungskorrektur",
+  "creditNoteItemsHeading": "Details der Rechnungskorrektur",
+  "creditNoteSummaryHeading": "Zusammenfassung",
+  "creditNoteReferenceLabel": "Korrektur zu Rechnung",
+  "quoteTitle": "Angebot",
+  "quoteNumberLabel": "Angebotsnummer",
+  "quoteNumberShortLabel": "Angebots-Nr.",
+  "quoteDateLabel": "Angebotsdatum",
+  "quoteValidUntilLabel": "Gültig bis",
+  "quoteItemsHeading": "Angebotsdetails",
+  "quoteSummaryHeading": "Zusammenfassung",
+  "quoteBillToHeading": "Angebot für"
 }

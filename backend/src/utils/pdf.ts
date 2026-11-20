@@ -291,7 +291,38 @@ function buildContext(
   forceAbsoluteLogoUrl = false,
 ): TemplateContext & { logoUrl?: string; brandLogoLeft?: boolean } {
   const requestedLocale = localeOverride ?? invoice.locale ?? settings?.locale;
-  const { locale: resolvedLocale, labels } = getInvoiceLabels(requestedLocale);
+  const { locale: resolvedLocale, labels: baseLabels } = getInvoiceLabels(
+    requestedLocale,
+  );
+  const isCreditNote = invoice.documentType === "credit_note";
+  const isQuote = invoice.documentType === "quote";
+  // Templates only know the invoice labels; credit notes and quotes swap in
+  // their own wording so every template (including custom ones) renders
+  // them correctly. A quote's due date is its valid-until date.
+  const labels = isCreditNote
+    ? {
+      ...baseLabels,
+      invoiceTitle: baseLabels.creditNoteTitle,
+      invoiceNumberLabel: baseLabels.creditNoteNumberLabel,
+      invoiceNumberShortLabel: baseLabels.creditNoteNumberShortLabel,
+      invoiceDateLabel: baseLabels.creditNoteDateLabel,
+      itemsHeading: baseLabels.creditNoteItemsHeading,
+      summaryHeading: baseLabels.creditNoteSummaryHeading,
+    }
+    : isQuote
+    ? {
+      ...baseLabels,
+      invoiceTitle: baseLabels.quoteTitle,
+      invoiceNumberLabel: baseLabels.quoteNumberLabel,
+      invoiceNumberShortLabel: baseLabels.quoteNumberShortLabel,
+      invoiceDateLabel: baseLabels.quoteDateLabel,
+      dueDateLabel: baseLabels.quoteValidUntilLabel,
+      dueShortLabel: baseLabels.quoteValidUntilLabel,
+      itemsHeading: baseLabels.quoteItemsHeading,
+      summaryHeading: baseLabels.quoteSummaryHeading,
+      billToHeading: baseLabels.quoteBillToHeading,
+    }
+    : baseLabels;
   const currency = invoice.currency || settings?.currency || "USD";
   const companyPostalCity = formatPostalCityLine(
     settings?.companyPostalCode,
@@ -355,6 +386,13 @@ function buildContext(
     dueDate: formatDate(invoice.dueDate, dateFormat),
     currency,
     status: invoice.status,
+    isCreditNote,
+    isQuote,
+    creditedInvoiceNumber: invoice.creditedInvoice?.invoiceNumber,
+    creditedInvoiceDate: formatDate(
+      invoice.creditedInvoice?.issueDate,
+      dateFormat,
+    ),
 
     // Customer
     customerName: invoice.customer.name,
@@ -413,8 +451,9 @@ function buildContext(
 
     // Payment
     paymentTerms: invoice.paymentTerms || settings?.paymentTerms || undefined,
-    paymentMethods: settings?.paymentMethods || undefined,
-    bankAccount: settings?.bankAccount || undefined,
+    // Nothing is payable on a quote yet
+    paymentMethods: isQuote ? undefined : settings?.paymentMethods || undefined,
+    bankAccount: isQuote ? undefined : settings?.bankAccount || undefined,
 
     // Notes
     notes: invoice.notes || settings?.defaultNotes || undefined,
@@ -433,6 +472,20 @@ function buildContext(
     // Permanently use logo-left layout
     brandLogoLeft: true,
   } as TemplateContext & { logoUrl?: string; brandLogoLeft?: boolean };
+}
+
+/** Download/attachment file name, e.g. invoice-INV-001.pdf or credit-note-CN-001.pdf */
+export function documentFileName(
+  invoice: { invoiceNumber?: string; documentType?: string },
+  fallback: string,
+  extension: string,
+): string {
+  const prefix = invoice.documentType === "credit_note"
+    ? "credit-note"
+    : invoice.documentType === "quote"
+    ? "quote"
+    : "invoice";
+  return `${prefix}-${invoice.invoiceNumber || fallback}.${extension}`;
 }
 
 export async function generateInvoicePDF(
@@ -464,7 +517,8 @@ export async function generateInvoicePDF(
   );
   const attachments: Array<{ fileName: string; bytes: Uint8Array }> = [];
   let facturx: { xml: Uint8Array; profile: XMLProfile } | undefined;
-  if (opts?.embedXml) {
+  // Quotes are not invoices: never attach e-invoice XML to them
+  if (opts?.embedXml && invoiceData.documentType !== "quote") {
     try {
       const profileId = opts.embedXmlProfileId || "ubl21";
       const { xml, profile } = generateInvoiceXML(
@@ -479,9 +533,11 @@ export async function generateInvoicePDF(
         facturx = { xml: bytes, profile };
       } else {
         attachments.push({
-          fileName: `invoice-${
-            invoiceData.invoiceNumber || invoiceData.id
-          }.${profile.fileExtension}`,
+          fileName: documentFileName(
+            invoiceData,
+            invoiceData.id,
+            profile.fileExtension,
+          ),
           bytes,
         });
       }

@@ -1,8 +1,17 @@
-import { error, redirect } from "@sveltejs/kit";
+import { backendGet } from "$lib/backend";
 import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ params }) => {
-  // Just pass the token to the page so it can construct the iframe source
-  // No backend communication here, backend serves the actual HTML via iframe!
-  return { token: params.token };
+  // The document itself is served by the backend (iframe); only look up
+  // whether it is a credit note or quote so the heading can say so.
+  let isCreditNote = false;
+  let isQuote = false;
+  try {
+    const doc = await backendGet(`/api/v1/public/invoices/${params.token}`, "");
+    isCreditNote = doc?.documentType === "credit_note";
+    isQuote = doc?.documentType === "quote";
+  } catch {
+    /* unknown or unpublished token: the iframe shows the error */
+  }
+  return { token: params.token, isCreditNote, isQuote };
 };

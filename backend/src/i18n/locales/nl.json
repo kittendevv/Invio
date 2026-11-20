@@ -35,5 +35,20 @@
   "bankAccountPrefix": "Bank:",
   "paymentTermsLabel": "Betalingsvoorwaarden",
   "notesHeading": "Notities",
-  "thankYouNote": "Bedankt voor uw bedrijf!"
+  "thankYouNote": "Bedankt voor uw bedrijf!",
+  "creditNoteTitle": "Creditnota",
+  "creditNoteNumberLabel": "Creditnotanummer",
+  "creditNoteNumberShortLabel": "Creditnota nr.",
+  "creditNoteDateLabel": "Creditnotadatum",
+  "creditNoteItemsHeading": "Details creditnota",
+  "creditNoteSummaryHeading": "Overzicht creditnota",
+  "creditNoteReferenceLabel": "Creditnota voor factuur",
+  "quoteTitle": "Offerte",
+  "quoteNumberLabel": "Offertenummer",
+  "quoteNumberShortLabel": "Offerte nr.",
+  "quoteDateLabel": "Offertedatum",
+  "quoteValidUntilLabel": "Geldig tot",
+  "quoteItemsHeading": "Details offerte",
+  "quoteSummaryHeading": "Overzicht offerte",
+  "quoteBillToHeading": "Offerte voor"
 }

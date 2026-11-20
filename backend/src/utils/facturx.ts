@@ -93,6 +93,18 @@ export function generateFacturX22XML(
   // satisfy the EN 16931 calculation rules
   const totals = computeXmlTotals(invoice);
 
+  // Credit notes use document type 381 and reference the credited invoice (BG-3)
+  const isCreditNote = invoice.documentType === "credit_note";
+  const credited = isCreditNote ? invoice.creditedInvoice : undefined;
+  const creditedDate = fmtDateYYYYMMDD(credited?.issueDate);
+  const invoiceReference = credited
+    ? `
+    <ram:InvoiceReferencedDocument>
+      <ram:IssuerAssignedID>${xmlEscape(credited.invoiceNumber)}</ram:IssuerAssignedID>
+      ${creditedDate ? `<ram:FormattedIssueDateTime><qdt:DateTimeString format="102">${creditedDate}</qdt:DateTimeString></ram:FormattedIssueDateTime>` : ""}
+    </ram:InvoiceReferencedDocument>`
+    : "";
+
   const docContext = `
   <rsm:ExchangedDocumentContext>
     <ram:BusinessProcessSpecifiedDocumentContextParameter>
@@ -106,7 +118,7 @@ export function generateFacturX22XML(
   const docHeader = `
   <rsm:ExchangedDocument>
     <ram:ID>${xmlEscape(invoice.invoiceNumber)}</ram:ID>
-    <ram:TypeCode>380</ram:TypeCode>
+    <ram:TypeCode>${isCreditNote ? "381" : "380"}</ram:TypeCode>
     <ram:IssueDateTime><udt:DateTimeString format="102">${issue}</udt:DateTimeString></ram:IssueDateTime>
     ${invoice.notes ? `<ram:IncludedNote><ram:Content>${xmlEscape(invoice.notes)}</ram:Content></ram:IncludedNote>` : ""}
   </rsm:ExchangedDocument>`;
@@ -215,7 +227,7 @@ export function generateFacturX22XML(
       ${totals.roundingAmount ? `<ram:RoundingAmount>${decimals(totals.roundingAmount)}</ram:RoundingAmount>` : ""}
       <ram:GrandTotalAmount>${decimals(totals.grandTotal)}</ram:GrandTotalAmount>
       <ram:DuePayableAmount>${decimals(totals.payable)}</ram:DuePayableAmount>
-    </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:SpecifiedTradeSettlementHeaderMonetarySummation>${invoiceReference}
   </ram:ApplicableHeaderTradeSettlement>`;
 
   // BASIC: Essential line items only
