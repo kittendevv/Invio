@@ -69,7 +69,7 @@ export function taxCategoryId(rate: number): string {
 /** Format a unit price with 2 to 4 decimals. */
 export function priceDecimals(n: number): string {
   const s = r4(n).toFixed(4);
-  return s.replace(/(\.\d\d\d?)0+$/, "$1");
+  return s.replace(/(\.\d\d\d*?)0+$/, "$1");
 }
 
 export function computeXmlTotals(invoice: InvoiceWithDetails): XmlTotals {
