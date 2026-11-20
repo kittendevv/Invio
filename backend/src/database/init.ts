@@ -203,6 +203,13 @@ function ensureInvoiceColumns(database: DB): void {
     "TEXT DEFAULT 'line'",
   );
   addColumnIfMissing(database, "invoices", "locale", "TEXT");
+  addColumnIfMissing(
+    database,
+    "invoices",
+    "document_type",
+    "TEXT DEFAULT 'invoice'",
+  );
+  addColumnIfMissing(database, "invoices", "credited_invoice_id", "TEXT");
 }
 
 function ensureInvoiceItemColumns(database: DB): void {
@@ -442,7 +449,9 @@ function migrateInvoicesForVoided(database: DB): void {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         prices_include_tax BOOLEAN DEFAULT 0,
         rounding_mode TEXT DEFAULT 'line',
-        locale TEXT
+        locale TEXT,
+        document_type TEXT DEFAULT 'invoice',
+        credited_invoice_id TEXT
       )
     `);
 
@@ -858,15 +867,21 @@ function expandPatternTokens(pattern: string): string {
     .replace(/\{RAND4\}/g, () => cryptoRandom(4));
 }
 
-export function getNextInvoiceNumber(customerId?: string): string {
+export function getNextInvoiceNumber(
+  customerId?: string,
+  patternOverride?: string,
+): string {
   const cfg = getNumberingSettings();
+  // A pattern override (e.g. a separate credit note pattern) always applies,
+  // independent of the invoice numbering switch.
+  const pattern = patternOverride ?? (cfg.enabled ? cfg.pattern : undefined);
 
   // Advanced pattern mode (when enabled and configured)
-  if (cfg.pattern && cfg.enabled) {
-    const expanded = expandPatternTokens(cfg.pattern);
-    const hasSeq = /\{SEQ\}/.test(cfg.pattern);
-    const hasClientSeq = /\{CSEQ\}/.test(cfg.pattern);
-    const hasCustomerNum = /\{CNUM\}/.test(cfg.pattern);
+  if (pattern) {
+    const expanded = expandPatternTokens(pattern);
+    const hasSeq = /\{SEQ\}/.test(pattern);
+    const hasClientSeq = /\{CSEQ\}/.test(pattern);
+    const hasCustomerNum = /\{CNUM\}/.test(pattern);
     if (!hasSeq && !hasClientSeq && !hasCustomerNum) return expanded;
 
     let result = expanded;
@@ -904,6 +919,31 @@ export function getNextInvoiceNumber(customerId?: string): string {
     : `${cfg.prefix}-`;
   const next = findMaxSequence(base) + 1;
   return `${base}${String(next).padStart(cfg.pad, "0")}`;
+}
+
+export const DEFAULT_CREDIT_NOTE_PATTERN = "CN-{YYYY}-{SEQ}";
+
+/**
+ * Final number for a document leaving draft. Credit notes share the invoice
+ * counter unless the "creditNoteNumbering" setting is "separate"; then they
+ * use their own pattern, and with it their own {SEQ} counter.
+ */
+export function getNextDocumentNumber(
+  documentType: string | undefined,
+  customerId?: string,
+): string {
+  if (documentType === "credit_note") {
+    const rows = getDatabase().query(
+      "SELECT key, value FROM settings WHERE key IN ('creditNoteNumbering','creditNoteNumberPattern')",
+    ) as [string, string][];
+    const m = new Map(rows);
+    if ((m.get("creditNoteNumbering") || "shared") === "separate") {
+      const pattern = (m.get("creditNoteNumberPattern") || "").trim() ||
+        DEFAULT_CREDIT_NOTE_PATTERN;
+      return getNextInvoiceNumber(customerId, pattern);
+    }
+  }
+  return getNextInvoiceNumber(customerId);
 }
 
 //

@@ -17,7 +17,7 @@
   <!-- Minimal Header -->
   <header class="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-6 px-4 py-8 sm:flex-row md:px-8">
     <div class="flex items-center gap-2">
-      <span class="text-base-content/80 text-3xl font-light tracking-tight">{t("Invoice")}</span>
+      <span class="text-base-content/80 text-3xl font-light tracking-tight">{data.isCreditNote ? t("Credit note") : t("Invoice")}</span>
     </div>
 
     <div class="bg-base-100 border-base-200/60 flex flex-wrap items-center justify-center gap-2 rounded-full border p-2 shadow-sm sm:gap-3">

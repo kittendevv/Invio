@@ -35,5 +35,12 @@
   "bankAccountPrefix": "Банка:",
   "paymentTermsLabel": "Условия за плащане",
   "notesHeading": "Бележки",
-  "thankYouNote": "Благодарим ви за доверието!"
+  "thankYouNote": "Благодарим ви за доверието!",
+  "creditNoteTitle": "Кредитно известие",
+  "creditNoteNumberLabel": "Номер на кредитно известие",
+  "creditNoteNumberShortLabel": "Кредитно известие №",
+  "creditNoteDateLabel": "Дата на кредитно известие",
+  "creditNoteItemsHeading": "Детайли на кредитното известие",
+  "creditNoteSummaryHeading": "Обобщение на кредитното известие",
+  "creditNoteReferenceLabel": "Към фактура"
 }

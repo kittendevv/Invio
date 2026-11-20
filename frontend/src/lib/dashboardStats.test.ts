@@ -165,3 +165,39 @@ describe("weekdayName", () => {
     expect(weekdayName(6, "de")).toBe("Sonntag");
   });
 });
+
+describe("computeSalesStats with credit notes", () => {
+  const sales = [
+    {
+      id: "i1",
+      customerId: "a",
+      customer: { name: "A", countryCode: "DE" },
+      issueDate: "2025-01-15",
+      status: "paid",
+      total: 100,
+      items: [{ productId: "p1", name: "Widget", quantity: 4, lineTotal: 100 }],
+    },
+    {
+      id: "c1",
+      documentType: "credit_note",
+      customerId: "a",
+      customer: { name: "A", countryCode: "DE" },
+      issueDate: "2025-02-03",
+      status: "sent",
+      total: 25,
+      items: [{ productId: "p1", name: "Widget", quantity: 1, lineTotal: 25 }],
+    },
+  ];
+
+  test("subtracts credit notes without counting them as sales", () => {
+    const s = computeSalesStats(sales, 2025);
+    expect(s.total).toBe(75);
+    expect(s.monthly[0]).toEqual({ month: "2025-01", total: 100, count: 1 });
+    expect(s.monthly[1]).toEqual({ month: "2025-02", total: -25, count: 0 });
+    expect(s.countries).toEqual([{ code: "DE", total: 75, count: 1 }]);
+    expect(s.customers).toEqual([{ id: "a", name: "A", total: 75, count: 1 }]);
+    expect(s.products).toEqual([
+      { id: "p1", name: "Widget", quantity: 3, total: 75, count: 1 },
+    ]);
+  });
+});

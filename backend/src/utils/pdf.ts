@@ -291,7 +291,23 @@ function buildContext(
   forceAbsoluteLogoUrl = false,
 ): TemplateContext & { logoUrl?: string; brandLogoLeft?: boolean } {
   const requestedLocale = localeOverride ?? invoice.locale ?? settings?.locale;
-  const { locale: resolvedLocale, labels } = getInvoiceLabels(requestedLocale);
+  const { locale: resolvedLocale, labels: baseLabels } = getInvoiceLabels(
+    requestedLocale,
+  );
+  const isCreditNote = invoice.documentType === "credit_note";
+  // Templates only know the invoice labels; a credit note swaps in its own
+  // wording so every template (including custom ones) renders it correctly.
+  const labels = isCreditNote
+    ? {
+      ...baseLabels,
+      invoiceTitle: baseLabels.creditNoteTitle,
+      invoiceNumberLabel: baseLabels.creditNoteNumberLabel,
+      invoiceNumberShortLabel: baseLabels.creditNoteNumberShortLabel,
+      invoiceDateLabel: baseLabels.creditNoteDateLabel,
+      itemsHeading: baseLabels.creditNoteItemsHeading,
+      summaryHeading: baseLabels.creditNoteSummaryHeading,
+    }
+    : baseLabels;
   const currency = invoice.currency || settings?.currency || "USD";
   const companyPostalCity = formatPostalCityLine(
     settings?.companyPostalCode,
@@ -355,6 +371,12 @@ function buildContext(
     dueDate: formatDate(invoice.dueDate, dateFormat),
     currency,
     status: invoice.status,
+    isCreditNote,
+    creditedInvoiceNumber: invoice.creditedInvoice?.invoiceNumber,
+    creditedInvoiceDate: formatDate(
+      invoice.creditedInvoice?.issueDate,
+      dateFormat,
+    ),
 
     // Customer
     customerName: invoice.customer.name,
@@ -435,6 +457,18 @@ function buildContext(
   } as TemplateContext & { logoUrl?: string; brandLogoLeft?: boolean };
 }
 
+/** Download/attachment file name, e.g. invoice-INV-001.pdf or credit-note-CN-001.pdf */
+export function documentFileName(
+  invoice: { invoiceNumber?: string; documentType?: string },
+  fallback: string,
+  extension: string,
+): string {
+  const prefix = invoice.documentType === "credit_note"
+    ? "credit-note"
+    : "invoice";
+  return `${prefix}-${invoice.invoiceNumber || fallback}.${extension}`;
+}
+
 export async function generateInvoicePDF(
   invoiceData: InvoiceWithDetails,
   businessSettings?: BusinessSettings,
@@ -479,9 +513,11 @@ export async function generateInvoicePDF(
         facturx = { xml: bytes, profile };
       } else {
         attachments.push({
-          fileName: `invoice-${
-            invoiceData.invoiceNumber || invoiceData.id
-          }.${profile.fileExtension}`,
+          fileName: documentFileName(
+            invoiceData,
+            invoiceData.id,
+            profile.fileExtension,
+          ),
           bytes,
         });
       }

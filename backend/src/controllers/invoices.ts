@@ -2,6 +2,7 @@ import {
   calculateInvoiceTotals,
   generateDraftInvoiceNumber,
   getDatabase,
+  getNextDocumentNumber,
   getNextInvoiceNumber,
 } from "../database/init.ts";
 import { getSetting } from "./settings.ts";
@@ -11,6 +12,7 @@ import {
   CreateInvoiceRequest,
   Invoice,
   InvoiceItem,
+  InvoiceReference,
   InvoiceWithDetails,
   StatusHistoryEntry,
   UpdateInvoiceRequest,
@@ -605,7 +607,8 @@ export const getInvoices = (): Invoice[] => {
     SELECT id, invoice_number, customer_id, issue_date, due_date, currency, status,
            subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
            payment_terms, notes, share_token, created_at, updated_at,
-           prices_include_tax, rounding_mode, locale
+           prices_include_tax, rounding_mode, locale,
+           document_type, credited_invoice_id
     FROM invoices
     ORDER BY created_at DESC
   `);
@@ -620,7 +623,8 @@ export const getInvoiceById = (id: string): InvoiceWithDetails | null => {
     SELECT id, invoice_number, customer_id, issue_date, due_date, currency, status,
            subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
            payment_terms, notes, share_token, created_at, updated_at,
-           prices_include_tax, rounding_mode, locale
+           prices_include_tax, rounding_mode, locale,
+           document_type, credited_invoice_id
     FROM invoices
     WHERE id = ?
   `,
@@ -720,7 +724,14 @@ export const getInvoiceById = (id: string): InvoiceWithDetails | null => {
   }));
 
   const statusHistory = getStatusHistory(id);
-  return { ...invoice, customer, items: itemsWithTaxes, taxes, statusHistory };
+  return {
+    ...invoice,
+    customer,
+    items: itemsWithTaxes,
+    taxes,
+    statusHistory,
+    ...documentReferences(invoice, true),
+  };
 };
 
 export const getInvoiceByShareToken = (
@@ -732,7 +743,8 @@ export const getInvoiceByShareToken = (
     SELECT id, invoice_number, customer_id, issue_date, due_date, currency, status,
            subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
            payment_terms, notes, share_token, created_at, updated_at,
-           prices_include_tax, rounding_mode, locale
+           prices_include_tax, rounding_mode, locale,
+           document_type, credited_invoice_id
     FROM invoices
     WHERE share_token = ?
   `,
@@ -828,7 +840,14 @@ export const getInvoiceByShareToken = (
   }));
 
   const statusHistory = getStatusHistory(String(invoice.id));
-  return { ...invoice, customer, items: itemsWithTaxes, taxes, statusHistory };
+  return {
+    ...invoice,
+    customer,
+    items: itemsWithTaxes,
+    taxes,
+    statusHistory,
+    ...documentReferences(invoice, false),
+  };
 };
 
 export const updateInvoice = async (
@@ -1016,7 +1035,8 @@ export const updateInvoice = async (
       !nextInvoiceNumber &&
       existing.invoiceNumber.startsWith("DRAFT-")
     ) {
-      const finalNum = getNextInvoiceNumber(
+      const finalNum = getNextDocumentNumber(
+        existing.documentType,
         data.customerId ?? existing.customerId,
       );
       db.query(
@@ -1236,9 +1256,19 @@ export const deleteInvoice = async (id: string): Promise<boolean> => {
 
 export const duplicateInvoice = async (
   id: string,
+  options: { asCreditNote?: boolean } = {},
 ): Promise<InvoiceWithDetails | null> => {
   const original = await getInvoiceById(id);
   if (!original) return null;
+  const { asCreditNote = false } = options;
+  // A duplicate keeps the document type (and credited invoice) of the
+  // original; a credit note always credits the original.
+  const documentType = asCreditNote
+    ? "credit_note"
+    : (original.documentType || "invoice");
+  const creditedInvoiceId = asCreditNote
+    ? original.id
+    : (original.creditedInvoiceId ?? null);
   const db = getDatabase();
   const newId = generateUUID();
   const newShare = generateShareToken();
@@ -1286,15 +1316,17 @@ export const duplicateInvoice = async (
       id, invoice_number, customer_id, issue_date, due_date, currency, status,
       subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
       payment_terms, notes, share_token, created_at, updated_at,
-      prices_include_tax, rounding_mode, locale
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      prices_include_tax, rounding_mode, locale,
+      document_type, credited_invoice_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
       [
         newId,
         generateDraftInvoiceNumber(),
         original.customerId,
         now,
-        original.dueDate || null,
+        // Nothing is due on a credit note, and the invoice's terms don't apply
+        asCreditNote ? null : (original.dueDate || null),
         original.currency,
         "draft",
         totals.subtotal,
@@ -1303,21 +1335,26 @@ export const duplicateInvoice = async (
         original.taxRate,
         totals.taxAmount,
         totals.total,
-        original.paymentTerms || null,
-        original.notes || null,
+        asCreditNote ? null : (original.paymentTerms || null),
+        asCreditNote ? null : (original.notes || null),
         newShare,
         now,
         now,
         pricesIncludeTax ? 1 : 0,
         roundingMode,
         (original as Invoice).locale ?? null,
+        documentType,
+        creditedInvoiceId,
       ],
     );
     // Copy items
     for (const [idx, it] of items.entries()) {
       const itemId = generateUUID();
-      // New draft: take current product values, keep the original's if the product is gone
-      const snapshot = it.productId && getProductById(it.productId)
+      // New draft: take current product values, keep the original's if the
+      // product is gone. A credit note reverses the invoice exactly, so it
+      // always keeps the invoice's values.
+      const snapshot = !asCreditNote && it.productId &&
+          getProductById(it.productId)
         ? snapshotProduct(it.productId)
         : it;
       db.query(
@@ -1416,6 +1453,30 @@ export const duplicateInvoice = async (
   return await getInvoiceById(newId);
 };
 
+const CREDITABLE_STATUSES = new Set(["sent", "overdue", "paid", "complete"]);
+
+/**
+ * Create a draft credit note for an issued invoice. It copies the invoice's
+ * lines and amounts; edit the draft to credit only part of the invoice.
+ */
+export const createCreditNote = async (
+  invoiceId: string,
+): Promise<InvoiceWithDetails> => {
+  const invoice = await getInvoiceById(invoiceId);
+  if (!invoice) throw new Error("Invoice not found");
+  if (invoice.documentType === "credit_note") {
+    throw new Error("A credit note cannot be credited");
+  }
+  if (!CREDITABLE_STATUSES.has(invoice.status)) {
+    throw new Error(
+      "Only issued invoices can be credited. Edit or delete a draft instead; a voided invoice needs no credit note.",
+    );
+  }
+  const note = await duplicateInvoice(invoiceId, { asCreditNote: true });
+  if (!note) throw new Error("Failed to create credit note");
+  return note;
+};
+
 export const publishInvoice = async (
   id: string,
 ): Promise<{ shareToken: string; shareUrl: string }> => {
@@ -1442,7 +1503,7 @@ export const publishInvoice = async (
     const now = new Date();
     let num = invoice.invoiceNumber;
     if (num.startsWith("DRAFT-")) {
-      num = getNextInvoiceNumber(invoice.customerId);
+      num = getNextDocumentNumber(invoice.documentType, invoice.customerId);
     }
     db.execute("BEGIN");
     try {
@@ -1549,6 +1610,43 @@ export const voidInvoice = async (id: string): Promise<{ success: true }> => {
   return { success: true };
 };
 
+function toReference(row: unknown[]): InvoiceReference {
+  return {
+    id: String(row[0]),
+    invoiceNumber: String(row[1]),
+    issueDate: new Date(row[2] as string),
+    status: row[3] as Invoice["status"],
+    total: Number(row[4]),
+  };
+}
+
+/**
+ * Links between invoices and credit notes: the invoice a credit note credits
+ * and, when `includeCreditNotes` is set, the credit notes issued against an
+ * invoice.
+ */
+function documentReferences(
+  invoice: Invoice,
+  includeCreditNotes: boolean,
+): Pick<InvoiceWithDetails, "creditedInvoice" | "creditNotes"> {
+  const db = getDatabase();
+  const cols = "id, invoice_number, issue_date, status, total";
+  if (invoice.documentType === "credit_note") {
+    if (!invoice.creditedInvoiceId) return {};
+    const rows = db.query(
+      `SELECT ${cols} FROM invoices WHERE id = ?`,
+      [invoice.creditedInvoiceId],
+    );
+    return rows.length ? { creditedInvoice: toReference(rows[0]) } : {};
+  }
+  if (!includeCreditNotes) return {};
+  const rows = db.query(
+    `SELECT ${cols} FROM invoices WHERE credited_invoice_id = ? AND document_type = 'credit_note' ORDER BY created_at`,
+    [invoice.id],
+  );
+  return rows.length ? { creditNotes: rows.map(toReference) } : {};
+}
+
 // Helper functions
 function mapRowToInvoice(row: unknown[]): Invoice {
   return {
@@ -1579,6 +1677,8 @@ function mapRowToInvoice(row: unknown[]): Invoice {
     pricesIncludeTax: Boolean(row[18] as number),
     roundingMode: (row[19] as string) || "line",
     locale: (row[20] as string) || undefined,
+    documentType: row[21] === "credit_note" ? "credit_note" : "invoice",
+    creditedInvoiceId: (row[22] as string) || undefined,
   };
 }
 
@@ -1590,6 +1690,9 @@ function applyDerivedOverdue<
   // paid/voided/complete invoices are settled.
   if (inv.status !== "sent") return inv;
   if (!inv.dueDate) return inv;
+  if ((inv as { documentType?: string }).documentType === "credit_note") {
+    return inv;
+  }
   const today = new Date();
   const dd = new Date(
     inv.dueDate.getUTCFullYear(),
