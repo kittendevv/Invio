@@ -5,6 +5,7 @@ import { generateUUID } from "../utils/uuid.ts";
 import { parse as parseYaml } from "yaml";
 import { dirname, isAbsolute, normalize, relative, resolve } from "std/path";
 import { ZipReader } from "https://deno.land/x/zipjs@v2.7.34/index.js";
+import { isInternalAddress, stripIpv6Brackets } from "../utils/ipRanges.ts";
 // Manifest-based installer (MVP): one HTML file + optional fonts (ignored for now)
 
 type ManifestHTML = {
@@ -119,82 +120,13 @@ const FORBIDDEN_HOSTS = new Set([
   "::1",
 ]);
 
-function isPrivateIPv4(hostname: string): boolean {
-  const parts = hostname.split(".").map((p) => Number(p));
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) {
-    return false;
-  }
-  const [a, b] = parts;
-  if (a === 10) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 127) return true;
-  if (a === 0) return true;
-  // CGNAT / carrier-grade NAT (RFC 6598) — internal in shared-hosting envs.
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  return false;
-}
-
-// Normalize an IPv6 literal the way URL.hostname returns it: it is wrapped in
-// square brackets (e.g. "[::1]"). Strip them so range checks see the raw
-// address. Returns the lower-cased address without brackets.
-function stripIpv6Brackets(hostname: string): string {
-  const lower = hostname.toLowerCase();
-  if (lower.startsWith("[") && lower.endsWith("]")) {
-    return lower.slice(1, -1);
-  }
-  return lower;
-}
-
-function isPrivateIPv6(hostname: string): boolean {
-  const addr = stripIpv6Brackets(hostname);
-  if (!addr.includes(":")) return false; // not an IPv6 literal
-  // Loopback ::1 and the unspecified address ::
-  if (addr === "::1" || addr === "::") return true;
-  // IPv4-mapped (::ffff:a.b.c.d / ::ffff:7f00:1) and IPv4-compatible / NAT64 /
-  // 6to4 all embed an IPv4 address — extract and re-check against IPv4 rules.
-  const mappedV4 = extractEmbeddedIPv4(addr);
-  if (mappedV4 && isPrivateIPv4(mappedV4)) return true;
-  // Unique-local fc00::/7 (fc.. and fd..) and link-local fe80::/10.
-  if (/^f[cd][0-9a-f]{0,2}:/.test(addr) || addr === "fc00" || addr === "fd00") {
-    return true;
-  }
-  if (/^fe[89ab][0-9a-f]?:/.test(addr)) return true;
-  return false;
-}
-
-// Pull an embedded IPv4 address out of IPv4-mapped/compatible/NAT64/6to4 IPv6
-// forms so it can be validated against the IPv4 private ranges.
-function extractEmbeddedIPv4(addr: string): string | null {
-  // Dotted-quad tail, e.g. ::ffff:127.0.0.1 or 64:ff9b::127.0.0.1
-  const dotted = addr.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
-  if (dotted) return dotted[1];
-  // Hextet-encoded IPv4-mapped, e.g. ::ffff:7f00:1 -> 127.0.0.1
-  const mapped = addr.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (mapped) {
-    const hi = parseInt(mapped[1], 16);
-    const lo = parseInt(mapped[2], 16);
-    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
-  }
-  // 6to4 2002:V4V4::/16 and NAT64 64:ff9b::V4V4 first two hextets after prefix.
-  const sixToFour = addr.match(/^2002:([0-9a-f]{1,4}):([0-9a-f]{1,4})/);
-  if (sixToFour) {
-    const hi = parseInt(sixToFour[1], 16);
-    const lo = parseInt(sixToFour[2], 16);
-    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
-  }
-  return null;
-}
-
 // True if a literal/resolved IP string targets an internal range.
 function isForbiddenAddress(host: string): boolean {
   const h = host.toLowerCase();
   if (FORBIDDEN_HOSTS.has(h)) return true;
   const bare = stripIpv6Brackets(h);
   if (FORBIDDEN_HOSTS.has(bare)) return true;
-  if (isPrivateIPv4(bare) || isPrivateIPv6(h)) return true;
-  return false;
+  return isInternalAddress(bare);
 }
 
 async function assertSafeRemoteUrl(raw: string, field: string): Promise<URL> {
