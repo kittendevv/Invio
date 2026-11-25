@@ -137,6 +137,8 @@
   "Invoice No": "Invoice No",
   "Invoice Number": "Invoice Number",
   "Invoice Number Pattern": "Invoice Number Pattern",
+  "Start counter at": "Start counter at",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.",
   "Credit note": "Credit note",
   "Credit Note #": "Credit Note #",
   "Create credit note": "Create credit note",

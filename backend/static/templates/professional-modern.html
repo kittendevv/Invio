@@ -31,7 +31,7 @@
         width: 62%;
       }
 
-      /* brand row with optional logo; absolute-positioned logo fits company-info height */
+      /* brand row with optional logo; absolute-positioned logo box matches company-info height */
       .brand {
         position: relative;
         margin-right: 276px;
@@ -51,11 +51,15 @@
         width: auto;
       }
       .brand img.logo {
+        /* Fill the logo box and scale the image inside it, so wide logos
+           shrink instead of spilling over the company details. */
+        width: 100%;
         height: 100%;
-        width: auto;
+        max-width: none;
+        max-height: none;
         object-fit: contain;
+        object-position: left top;
         display: block;
-        max-width: 220px;
       }
 
       .company-name { font-size:20px; font-weight:800; color:var(--highlight-color); margin-bottom:4px; letter-spacing:-0.02em; }
@@ -326,13 +330,6 @@
       .brand {
         margin-right: 276px;
       } /* keep clear of meta box */
-      .brand .logo {
-        height: 100%;
-        max-height: none;
-        max-width: 220px;
-        object-fit: contain;
-        display: block;
-      }
     </style>
   </head>
   <body>
@@ -500,31 +497,5 @@
         {{/bankAccount}}
       </div>
     </div>
-    <script>
-      (function () {
-        try {
-          var brand = document.querySelector(".brand");
-          if (!brand) return;
-          var logo = brand.querySelector("img.logo");
-          var info = brand.querySelector(".company-info");
-          if (!logo || !info) return;
-          function fit() {
-            try {
-              logo.style.height = "auto";
-              var h = info.offsetHeight;
-              if (h && h > 0) {
-                logo.style.height = h + "px";
-                logo.style.width = "auto";
-              }
-            } catch (e) {}
-          }
-          if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(fit);
-          }
-          window.addEventListener("load", fit);
-          setTimeout(fit, 60);
-        } catch (e) {}
-      })();
-    </script>
   </body>
 </html>

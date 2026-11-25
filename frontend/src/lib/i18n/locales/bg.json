@@ -115,6 +115,8 @@
   "Invoice No": "Фактура №",
   "Invoice Number": "Номер на фактура",
   "Invoice Number Pattern": "Шаблон за номер на фактура",
+  "Start counter at": "Начален номер на брояча",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "Следващият номер никога не е по-малък от тази стойност. Използвайте го, за да започнете нов диапазон от номера или да продължите от предишния си софтуер. Важи за {SEQ}.",
   "Credit note": "Кредитно известие",
   "Credit Note #": "Кредитно известие №",
   "Create credit note": "Създай кредитно известие",

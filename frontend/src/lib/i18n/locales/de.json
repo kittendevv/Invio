@@ -137,6 +137,8 @@
   "Invoice No": "Rechnungsnr.",
   "Invoice Number": "Rechnungsnummer",
   "Invoice Number Pattern": "Rechnungsnummer-Muster",
+  "Start counter at": "Zähler beginnt bei",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "Die nächste Nummer ist nie kleiner als dieser Wert. Damit lässt sich ein neuer Nummernkreis beginnen oder an die Nummern der bisherigen Software anschließen. Gilt für {SEQ}.",
   "Credit note": "Rechnungskorrektur",
   "Credit Note #": "Rechnungskorrektur #",
   "Create credit note": "Rechnungskorrektur erstellen",
