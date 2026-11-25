@@ -735,6 +735,7 @@ function getNumberingSettings(): {
   pad: number;
   pattern?: string;
   enabled: boolean;
+  start: number;
 } {
   const cfg = {
     prefix: "INV",
@@ -742,10 +743,11 @@ function getNumberingSettings(): {
     pad: 3,
     pattern: undefined as string | undefined,
     enabled: true,
+    start: 1,
   };
   try {
     const rows = getDatabase().query(
-      "SELECT key, value FROM settings WHERE key IN ('invoicePrefix','invoiceIncludeYear','invoiceNumberPadding','invoiceNumberPattern')",
+      "SELECT key, value FROM settings WHERE key IN ('invoicePrefix','invoiceIncludeYear','invoiceNumberPadding','invoiceNumberPattern','invoiceNumberStart')",
     );
     const m = new Map<string, string>();
     for (const r of rows) {
@@ -759,6 +761,7 @@ function getNumberingSettings(): {
     const p = parseInt(m.get("invoiceNumberPadding") || String(cfg.pad), 10);
     if (!Number.isNaN(p) && p >= 2 && p <= 8) cfg.pad = p;
     cfg.pattern = (m.get("invoiceNumberPattern") || "").trim() || undefined;
+    cfg.start = parseNumberStart(m.get("invoiceNumberStart"));
 
     try {
       const raw = getDatabase().query(
@@ -774,6 +777,27 @@ function getNumberingSettings(): {
     /* use defaults */
   }
   return cfg;
+}
+
+/**
+ * Parse the "start counter at" setting. Anything that is not a positive
+ * whole number (empty, 0, negative, text) means the default start of 1.
+ */
+export function parseNumberStart(value: unknown): number {
+  const raw = String(value ?? "").trim();
+  if (!/^\d+$/.test(raw)) return 1;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n >= 1 ? n : 1;
+}
+
+/**
+ * Next value for the shared invoice counter: one past the highest existing
+ * number, but never below the configured start. Raising the start lets a new
+ * number range begin (e.g. 1000000001); it can never go backwards or reuse a
+ * number that already exists.
+ */
+export function nextCounterValue(maxExisting: number, start: number): number {
+  return Math.max(maxExisting + 1, start);
 }
 
 /** Find the highest existing sequential suffix matching `likePrefix%`, optionally scoped to a single customer. */
@@ -859,7 +883,7 @@ export function getNextInvoiceNumber(customerId?: string): string {
     if (hasSeq) {
       // {SEQ}: global counter, shared across all customers
       const prefix = result.split("{SEQ}")[0];
-      const next = findMaxSequence(prefix) + 1;
+      const next = nextCounterValue(findMaxSequence(prefix), cfg.start);
       result = result.replace(/\{SEQ\}/g, String(next).padStart(3, "0"));
     }
     if (seqNMatch != null) {
@@ -887,7 +911,7 @@ export function getNextInvoiceNumber(customerId?: string): string {
   const base = cfg.includeYear
     ? `${cfg.prefix}-${new Date().getFullYear()}-`
     : `${cfg.prefix}-`;
-  const next = findMaxSequence(base) + 1;
+  const next = nextCounterValue(findMaxSequence(base), cfg.start);
   return `${base}${String(next).padStart(cfg.pad, "0")}`;
 }
 
