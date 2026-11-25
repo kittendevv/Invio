@@ -8,6 +8,7 @@
   <a href="https://github.com/kittendevv/Invio/wiki">Documentation</a> •
   <a href="https://ko-fi.com/codingkitten">Support</a>
 </p>
+<p align="center">Hosting sponsored by <a href="https://www.simafri.com/en/managed-vps/" rel="sponsored">Simafri</a> (managed VPS)</p>
 
 ------
 
