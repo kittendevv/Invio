@@ -667,16 +667,9 @@ export async function initDatabase(): Promise<void> {
   console.log("Database initialized successfully");
 }
 
-export async function resetDatabaseFromDemo(): Promise<void> {
+export async function resetDemoDatabase(): Promise<void> {
   if (!isDemoMode()) return;
-  const demoDb = getEnv("DEMO_DB_PATH");
   const activePath = resolvePath(getEnv("DATABASE_PATH", "./invio.db")!);
-  if (!demoDb) {
-    throw new Error("DEMO_MODE is true but DEMO_DB_PATH is not set.");
-  }
-  const demoPath = resolvePath(demoDb);
-  const tempPath =
-    `${activePath}.demo-reset-${Date.now()}-${crypto.randomUUID()}.tmp`;
 
   try {
     closeDatabase();
@@ -690,33 +683,11 @@ export async function resetDatabaseFromDemo(): Promise<void> {
 
   let resetError: unknown = undefined;
   try {
-    Deno.statSync(demoPath);
-    ensureDir(simpleDirname(activePath));
-
-    Deno.copyFileSync(demoPath, tempPath);
-    try {
-      Deno.renameSync(tempPath, activePath);
-    } catch {
-      try {
-        Deno.removeSync(activePath);
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) {
-          throw error;
-        }
-      }
-      Deno.renameSync(tempPath, activePath);
-    }
-    console.log("  Demo database reset from DEMO_DB_PATH.");
+    Deno.remove(activePath)
+    console.log("  Demo database reset.");
   } catch (e) {
     resetError = e;
   } finally {
-    try {
-      Deno.removeSync(tempPath);
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) {
-        console.warn("Could not remove temporary demo reset file:", error);
-      }
-    }
     await initDatabase();
   }
 
@@ -865,9 +836,11 @@ export function getNextInvoiceNumber(customerId?: string): string {
   if (cfg.pattern && cfg.enabled) {
     const expanded = expandPatternTokens(cfg.pattern);
     const hasSeq = /\{SEQ\}/.test(cfg.pattern);
+    const seqNMatch = /\{SEQ([0-9]{1,})\}/.exec(cfg.pattern);
     const hasClientSeq = /\{CSEQ\}/.test(cfg.pattern);
+    const cSeqNMatch = /\{CSEQ([0-9]{1,})\}/.exec(cfg.pattern);
     const hasCustomerNum = /\{CNUM\}/.test(cfg.pattern);
-    if (!hasSeq && !hasClientSeq && !hasCustomerNum) return expanded;
+    if (!hasSeq && !hasClientSeq && !seqNMatch && !cSeqNMatch && !hasCustomerNum) return expanded;
 
     let result = expanded;
     // {CNUM} must resolve first: {SEQ}/{CSEQ} scan existing invoice_number
@@ -889,11 +862,23 @@ export function getNextInvoiceNumber(customerId?: string): string {
       const next = findMaxSequence(prefix) + 1;
       result = result.replace(/\{SEQ\}/g, String(next).padStart(3, "0"));
     }
+    if (seqNMatch != null) {
+      const SeqN = seqNMatch[1]
+      const prefix = result.split(seqNMatch[0])[0]
+      const next = findMaxSequence(prefix) + 1;
+      result = result.replace(/\{SEQ[0-9]{1,}\}/g, String(next).padStart(Number(SeqN), "0"));
+    }
     if (hasClientSeq) {
       // {CSEQ}: counter scoped to this customer's own invoices
       const prefix = result.split("{CSEQ}")[0];
       const next = findMaxSequence(prefix, customerId) + 1;
       result = result.replace(/\{CSEQ\}/g, String(next).padStart(3, "0"));
+    }
+    if (cSeqNMatch != null) {
+      const SeqN = cSeqNMatch[1]
+      const prefix = result.split(cSeqNMatch[0])[0]
+      const next = findMaxSequence(prefix, customerId) + 1;
+      result = result.replace(/\{CSEQ[0-9]{1,}\}/g, String(next).padStart(Number(SeqN), "0"));
     }
     return result;
   }
