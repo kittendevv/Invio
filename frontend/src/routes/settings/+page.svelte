@@ -44,6 +44,7 @@
     numberFormat: "comma",
     postalCityFormat: "auto",
     invoiceFallbackLocale: "",
+    creditNoteNumbering: "shared",
     ...withBools(initialSettings as Record<string, unknown>),
   } as Record<string, any>);
 
@@ -124,6 +125,7 @@
           dateFormat: latest.dateFormat || "YYYY-MM-DD",
           numberFormat: latest.numberFormat || "comma",
           postalCityFormat: latest.postalCityFormat || "auto",
+          creditNoteNumbering: latest.creditNoteNumbering || "shared",
         };
         baselineSettings = { ...latest };
       }
@@ -670,6 +672,26 @@
                 {t("The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.")}
               </p>
             </label>
+            <label class="form-control"
+              ><div class="label">
+                <span class="label-text">{t("Credit note numbers")}</span>
+              </div>
+              <select class="select select-bordered w-full" bind:value={settings.creditNoteNumbering} disabled={!canUpdateSettings}>
+                <option value="shared">{t("Same sequence as invoices")}</option>
+                <option value="separate">{t("Own number pattern")}</option>
+              </select>
+            </label>
+            {#if settings.creditNoteNumbering === "separate"}
+              <label class="form-control"
+                ><div class="label">
+                  <span class="label-text">{t("Credit Note Number Pattern")}</span>
+                </div>
+                <input type="text" class="input input-bordered w-full" bind:value={settings.creditNoteNumberPattern} disabled={!canUpdateSettings} placeholder={"CN-{YYYY}-{SEQ}"} />
+                <p class="mt-2 text-xs opacity-70">
+                  {t("Same placeholders as the invoice pattern. Use a different prefix than invoices so credit notes get their own counter.")}
+                </p>
+              </label>
+            {/if}
           </div>
         {:else if section === "xml"}
           <div class="space-y-4">

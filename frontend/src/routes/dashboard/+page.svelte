@@ -5,6 +5,7 @@
   import { invoiceStatusLabel } from "$lib/i18n/mod";
   import { goto } from "$app/navigation";
   import { countryName, weekdayName } from "$lib/dashboardStats";
+  import { isCreditNote, signedTotal } from "$lib/utils/documentType";
   import SalesByMonthChart from "$lib/components/SalesByMonthChart.svelte";
   import WorldSalesMap from "$lib/components/WorldSalesMap.svelte";
 
@@ -145,7 +146,7 @@
       <div class="card-body p-4">
         <div class="text-xs opacity-70 sm:text-sm">{t("Open Invoices")}</div>
         <div class="text-2xl font-extrabold sm:text-3xl">
-          {(statusCounts.sent || 0) + (statusCounts.overdue || 0)}
+          {data.openInvoices ?? (statusCounts.sent || 0) + (statusCounts.overdue || 0)}
         </div>
       </div>
     </div>
@@ -388,12 +389,15 @@
           <tr class="hover">
             <td class="font-medium hover:underline">
               <a href={`/invoices/${inv.id}`}>{inv.invoiceNumber}</a>
+              {#if isCreditNote(inv)}
+                <span class="badge badge-outline badge-sm ml-1">{t("Credit note")}</span>
+              {/if}
               <div class="text-xs opacity-70 sm:hidden">
                 {t(invoiceStatusLabel(inv.status))}
               </div>
             </td>
             <td>{inv.customer?.name || ""}</td>
-            <td>{fmtMoney(inv.total || 0)}</td>
+            <td>{fmtMoney(signedTotal(inv))}</td>
             <td class="hidden sm:table-cell">
               {#if inv.status === "draft"}
                 <div class="badge badge-ghost badge-sm">{t("Draft")}</div>

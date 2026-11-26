@@ -305,6 +305,9 @@
         {{#dueDate}}<div>
           <strong>{{labels.dueDateLabel}}:</strong> {{dueDate}}
         </div>{{/dueDate}}
+        {{#creditedInvoiceNumber}}<div>
+          <strong>{{labels.creditNoteReferenceLabel}}:</strong> {{creditedInvoiceNumber}}{{#creditedInvoiceDate}} ({{creditedInvoiceDate}}){{/creditedInvoiceDate}}
+        </div>{{/creditedInvoiceNumber}}
         <div>
           <strong>{{labels.statusLabel}}:</strong> <span class="status-badge">{{status}}</span>
         </div>

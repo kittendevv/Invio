@@ -2,7 +2,7 @@
   import CountryFlag from "$lib/components/CountryFlag.svelte";
   import { getContext } from "svelte";
   import { invoiceStatusLabel } from "$lib/i18n/mod";
-  import { FileText, Edit, Copy, ExternalLink, Download, ArrowLeft, MoreHorizontal, FileCode2, ShieldOff, Send, Ban, Trash2, CheckCircle, Upload, Check, Pencil, ChevronDown, Mail } from "lucide-svelte";
+  import { FileText, FileMinus, Edit, Copy, ExternalLink, Download, ArrowLeft, MoreHorizontal, FileCode2, ShieldOff, Send, Ban, Trash2, CheckCircle, Upload, Check, Pencil, ChevronDown, Mail } from "lucide-svelte";
   import { enhance } from "$app/forms";
   import { page } from "$app/state";
   import type { SubmitFunction } from "@sveltejs/kit";
@@ -10,6 +10,7 @@
   import { hasPermission } from "$lib/types";
   import { formatPostalCityLine } from "$lib/address";
   import { formatDate } from "$lib/utils/date";
+  import { isCreditNote } from "$lib/utils/documentType";
 
   let { data, form } = $props();
   let t = getContext("i18n") as (key: string) => string;
@@ -31,6 +32,12 @@
   });
 
   let canUpdate = $derived(hasPermission(user, "invoices", "update"));
+  let canCreate = $derived(hasPermission(user, "invoices", "create"));
+  let creditNote = $derived(isCreditNote(invoice));
+  // Issued invoices can be corrected with a credit note
+  let canCreateCreditNote = $derived(
+    canCreate && Boolean(invoice && !creditNote && ["sent", "overdue", "paid", "complete"].includes(invoice.status)),
+  );
   let canDelete = $derived(hasPermission(user, "invoices", "delete"));
   let canPublish = $derived(hasPermission(user, "invoices", "publish"));
   let canVoid = $derived(hasPermission(user, "invoices", "void"));
@@ -47,7 +54,7 @@
   let canExport = $derived(hasPermission(user, "invoices", "export"));
 
   let defaultEmailSubject = $derived(
-    invoice ? `Invoice #${invoice.invoiceNumber || invoice.id}` : "Invoice",
+    invoice ? `${creditNote ? "Credit Note" : "Invoice"} #${invoice.invoiceNumber || invoice.id}` : "Invoice",
   );
   let defaultEmailTo = $derived(
     invoice?.customer?.email ?? "",
@@ -245,7 +252,7 @@
         <ArrowLeft size={20} />
       </a>
       <h1 class="flex items-center gap-2 text-2xl font-semibold">
-        {t("Invoice #")}
+        {creditNote ? t("Credit Note #") : t("Invoice #")}
         {invoice?.invoiceNumber || invoice?.id}
       </h1>
       {#if invoice?.status}
@@ -276,6 +283,9 @@
     <!-- Hidden forms for dropdown actions -->
     <form id="inv-duplicate" method="post" class="hidden" use:enhance>
       <input type="hidden" name="intent" value="duplicate" />
+    </form>
+    <form id="inv-credit-note" method="post" class="hidden" use:enhance>
+      <input type="hidden" name="intent" value="credit-note" />
     </form>
     <form id="inv-unpublish" method="post" class="hidden" use:enhance>
       <input type="hidden" name="intent" value="unpublish" />
@@ -389,6 +399,14 @@
                 {t("Duplicate")}
               </button>
             </li>
+            {#if canCreateCreditNote}
+              <li>
+                <button type="submit" form="inv-credit-note" class="flex items-center gap-2 py-2" title={t("Create a credit note that reverses this invoice")}>
+                  <FileMinus size={16} />
+                  {t("Create credit note")}
+                </button>
+              </li>
+            {/if}
             <li>
               <a href="/api/v1/invoices/{invoice.id}/xml" target="_blank" title={t("Download XML")} class="flex items-center gap-2 py-2">
                 <FileText size={16} />
@@ -446,6 +464,23 @@
 {#if invoice}
   <div class="mt-6 mb-8 grid grid-cols-1 gap-x-8 gap-y-4 text-sm md:grid-cols-2">
     <div class="space-y-4">
+      {#if creditNote && invoice.creditedInvoice}
+        <div>
+          <span class="mr-1 opacity-70">{t("Credit note for invoice")}:</span>
+          <a class="link font-medium" href="/invoices/{invoice.creditedInvoice.id}">{invoice.creditedInvoice.invoiceNumber}</a>
+          <span class="opacity-70">({fmtDate(invoice.creditedInvoice.issueDate)})</span>
+        </div>
+      {/if}
+      {#if invoice.creditNotes?.length}
+        <div>
+          <span class="mr-1 opacity-70">{t("Credit notes")}:</span>
+          {#each invoice.creditNotes as cn, i (cn.id)}
+            {#if i > 0},{/if}
+            <a class="link font-medium" href="/invoices/{cn.id}">{cn.invoiceNumber}</a>
+            <span class="opacity-70">({cn.status === "draft" ? t("Draft") : fmtMoney(-cn.total)})</span>
+          {/each}
+        </div>
+      {/if}
       <div>
         <span class="mr-1 opacity-70">{t("Customer")}:</span>
         {invoice.customer?.name || t("Unknown Customer")}

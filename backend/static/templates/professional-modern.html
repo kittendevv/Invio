@@ -342,6 +342,7 @@
         <p><strong>{{labels.invoiceNumberShortLabel}}:</strong> {{invoiceNumber}}</p>
         <p><strong>{{labels.invoiceDateLabel}}:</strong> {{issueDate}}</p>
         {{#dueDate}}<p><strong>{{labels.dueDateLabel}}:</strong> {{dueDate}}</p>{{/dueDate}}
+        {{#creditedInvoiceNumber}}<p><strong>{{labels.creditNoteReferenceLabel}}:</strong> {{creditedInvoiceNumber}}{{#creditedInvoiceDate}} ({{creditedInvoiceDate}}){{/creditedInvoiceDate}}</p>{{/creditedInvoiceNumber}}
         <p>
           <strong>{{labels.statusLabel}}:</strong> <span class="status-badge status-{{status}}"
           >{{status}}</span>

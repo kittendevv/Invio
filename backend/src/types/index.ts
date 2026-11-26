@@ -63,10 +63,27 @@ export interface Invoice {
   // Locale overrides
   locale?: string;
 
+  // "invoice" (default) or "credit_note". Credit notes store positive
+  // amounts; the document type makes them a credit.
+  documentType?: DocumentType;
+  // For credit notes: the invoice being credited
+  creditedInvoiceId?: string;
+
   // System fields
   shareToken: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type DocumentType = "invoice" | "credit_note";
+
+/** Short reference to another invoice (credited invoice, or credit notes of an invoice). */
+export interface InvoiceReference {
+  id: string;
+  invoiceNumber: string;
+  issueDate: Date;
+  status: Invoice["status"];
+  total: number;
 }
 
 export interface InvoiceItem {
@@ -344,6 +361,10 @@ export interface InvoiceWithDetails extends Invoice {
   attachments?: InvoiceAttachment[];
   taxes?: InvoiceTax[];
   statusHistory?: StatusHistoryEntry[];
+  // For credit notes: the credited invoice
+  creditedInvoice?: InvoiceReference;
+  // For invoices: credit notes issued against it
+  creditNotes?: InvoiceReference[];
 }
 
 // Template rendering context
@@ -366,6 +387,10 @@ export interface TemplateContext {
   dueDate?: string;
   currency: string;
   status: string;
+  // Credit notes: flag and the credited invoice
+  isCreditNote?: boolean;
+  creditedInvoiceNumber?: string;
+  creditedInvoiceDate?: string;
 
   // Customer info
   customerName: string;
