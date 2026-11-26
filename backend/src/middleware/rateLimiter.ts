@@ -11,6 +11,7 @@
  */
 
 import { getEnv } from "../utils/env.ts";
+import { parseIPv4, parseIPv6, stripIpv6Brackets } from "../utils/ipRanges.ts";
 
 interface RateLimitEntry {
   attempts: number;
@@ -50,30 +51,66 @@ export function getRateLimitConfig(): {
 }
 
 /**
- * Extract client IP address from request headers
- * Respects X-Forwarded-For when RATE_LIMIT_TRUST_PROXY is enabled
+ * Canonical form of an IP address for use as a rate-limit key, or null if
+ * `addr` is not an IP address. IPv4-mapped IPv6 addresses become IPv4, and
+ * IPv6 is written as eight uncompressed lowercase hextets, so equivalent
+ * spellings share one bucket.
  */
-export function getClientIp(headers: Headers, trustProxy: boolean): string {
-  if (trustProxy) {
-    // Check X-Forwarded-For first (most common proxy header)
-    const xForwardedFor = headers.get("x-forwarded-for");
-    if (xForwardedFor) {
-      // Take the first IP (original client) from the chain
-      const firstIp = xForwardedFor.split(",")[0]?.trim();
-      if (firstIp) return firstIp;
+export function canonicalIp(addr: string): string | null {
+  const trimmed = stripIpv6Brackets(addr.trim());
+  const v4 = parseIPv4(trimmed);
+  if (v4) return v4.join(".");
+  // Only IPv6 may carry a zone id, and it must be non-empty.
+  const zoned = trimmed.match(/^([^%]+)%[\w.-]+$/);
+  const h = parseIPv6(zoned ? zoned[1] : trimmed);
+  if (!h) return null;
+  if (h.slice(0, 5).every((x) => x === 0) && h[5] === 0xffff) {
+    return [h[6] >> 8, h[6] & 0xff, h[7] >> 8, h[7] & 0xff].join(".");
+  }
+  return h.map((x) => x.toString(16)).join(":");
+}
+
+/** True for loopback addresses, i.e. the bundled frontend in the same container. */
+export function isLoopbackAddress(addr: string): boolean {
+  const ip = canonicalIp(addr);
+  return ip !== null && (ip.startsWith("127.") || ip === "0:0:0:0:0:0:0:1");
+}
+
+let warnedUnknownClient = false;
+
+/**
+ * Resolve the client IP used as a rate-limit key.
+ *
+ * Forwarding headers are honoured only when the peer is loopback (the bundled
+ * frontend, which sets X-Forwarded-For to the browser's address) or when
+ * RATE_LIMIT_TRUST_PROXY is enabled. Header values that are not IP addresses
+ * are ignored. Otherwise the peer address is used.
+ */
+export function getClientIp(
+  headers: Headers,
+  peerAddr: string | undefined,
+  trustProxy: boolean,
+): string {
+  const peer = peerAddr ? canonicalIp(peerAddr) : null;
+  if (trustProxy || (peer && isLoopbackAddress(peer))) {
+    const candidates = [
+      headers.get("x-forwarded-for")?.split(",")[0],
+      headers.get("x-real-ip"),
+      headers.get("cf-connecting-ip"),
+    ];
+    for (const value of candidates) {
+      const ip = value ? canonicalIp(value) : null;
+      if (ip) return ip;
     }
-
-    // Check X-Real-IP (nginx)
-    const xRealIp = headers.get("x-real-ip");
-    if (xRealIp) return xRealIp.trim();
-
-    // Check CF-Connecting-IP (Cloudflare)
-    const cfConnectingIp = headers.get("cf-connecting-ip");
-    if (cfConnectingIp) return cfConnectingIp.trim();
   }
 
-  // Fallback: use a generic identifier if no IP can be determined
-  // In production behind a proxy, this should not happen if configured correctly
+  if (peer) return peer;
+  if (!warnedUnknownClient) {
+    warnedUnknownClient = true;
+    console.warn(
+      "Rate limiter could not determine a client address; affected requests share one bucket.",
+    );
+  }
   return "unknown";
 }
 

@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   };
 };
 export const actions: Actions = {
-  login: async ({ request, cookies }) => {
+  login: async ({ request, cookies, getClientAddress }) => {
     const form = await request.formData();
 
     const username = String(form.get("username") ?? "").trim();
@@ -34,6 +34,9 @@ export const actions: Actions = {
       .replace(/\s+/g, "")
       .trim();
     const recoveryCode = String(form.get("recoveryCode") ?? "").trim();
+
+    // Backend login rate limits are keyed on this address.
+    const clientAddress = getClientAddress();
 
     let resp: Response;
     let data: any = null;
@@ -52,6 +55,7 @@ export const actions: Actions = {
           method: "POST",
           headers: {
             "content-type": "application/json",
+            "x-forwarded-for": clientAddress,
           },
           body: JSON.stringify({ username, password }),
         });
@@ -120,6 +124,7 @@ export const actions: Actions = {
           method: "POST",
           headers: {
             "content-type": "application/json",
+            "x-forwarded-for": clientAddress,
           },
           body: JSON.stringify(payload),
         });
