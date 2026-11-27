@@ -162,6 +162,8 @@
   "Quote Number Pattern": "Nummerpatroon voor offertes",
   "Quotes always have their own counter, so they never use up invoice numbers. Use a different prefix than invoices.": "Offertes hebben altijd een eigen teller en gebruiken dus geen factuurnummers. Gebruik een ander voorvoegsel dan facturen.",
   "Quotes are valid for (days)": "Offertes zijn geldig (dagen)",
+  "Start counter at": "Teller begint bij",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "Het volgende nummer is nooit lager dan deze waarde. Gebruik dit om een nieuwe nummerreeks te beginnen of verder te gaan vanaf je vorige software. Geldt voor {SEQ}.",
   "Credit note": "Creditnota",
   "Credit Note #": "Creditnota #",
   "Create credit note": "Creditnota maken",

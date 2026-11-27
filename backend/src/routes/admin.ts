@@ -81,7 +81,7 @@ import {
   resolveInvoiceRenderLocale,
 } from "../i18n/translations.ts";
 
-import { resetDatabaseFromDemo } from "../database/init.ts";
+import { resetDemoDatabase } from "../database/init.ts";
 import {
   getNextDocumentNumber,
   getNextInvoiceNumber,
@@ -302,7 +302,7 @@ adminRoutes.use("/export/*", requireAdminAuth);
 adminRoutes.post("/admin/demo/reset", async (c) => {
   if (!DEMO_MODE) return c.json({ error: "Demo mode is not enabled" }, 400);
   try {
-    await resetDatabaseFromDemo();
+    await resetDemoDatabase();
     return c.json({ ok: true });
   } catch (e) {
     return c.json({ error: String(e) }, 500);

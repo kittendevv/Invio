@@ -140,6 +140,8 @@
   "Quote Number Pattern": "Шаблон за номер на оферта",
   "Quotes always have their own counter, so they never use up invoice numbers. Use a different prefix than invoices.": "Офертите винаги имат собствен брояч, така че не използват номера на фактури. Използвайте различен префикс от фактурите.",
   "Quotes are valid for (days)": "Офертите са валидни (дни)",
+  "Start counter at": "Начален номер на брояча",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "Следващият номер никога не е по-малък от тази стойност. Използвайте го, за да започнете нов диапазон от номера или да продължите от предишния си софтуер. Важи за {SEQ}.",
   "Credit note": "Кредитно известие",
   "Credit Note #": "Кредитно известие №",
   "Create credit note": "Създай кредитно известие",

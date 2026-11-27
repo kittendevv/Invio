@@ -162,6 +162,8 @@
   "Quote Number Pattern": "Patrón de numeración de cotizaciones",
   "Quotes always have their own counter, so they never use up invoice numbers. Use a different prefix than invoices.": "Las cotizaciones siempre tienen su propio contador, así no consumen números de factura. Use un prefijo distinto al de las facturas.",
   "Quotes are valid for (days)": "Validez de las cotizaciones (días)",
+  "Start counter at": "Iniciar contador en",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "El próximo número nunca es menor que este valor. Úselo para empezar un nuevo rango de numeración o para continuar desde su software anterior. Se aplica a {SEQ}.",
   "Credit note": "Nota crédito",
   "Credit Note #": "Nota crédito N.º",
   "Create credit note": "Crear nota crédito",

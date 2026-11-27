@@ -665,6 +665,15 @@
             </label>
             <label class="form-control"
               ><div class="label">
+                <span class="label-text">{t("Start counter at")}</span>
+              </div>
+              <input type="number" min="1" step="1" class="input input-bordered w-full" bind:value={settings.invoiceNumberStart} disabled={!canUpdateSettings} placeholder="1" />
+              <p class="mt-2 text-xs opacity-70">
+                {t("The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.")}
+              </p>
+            </label>
+            <label class="form-control"
+              ><div class="label">
                 <span class="label-text">{t("Credit note numbers")}</span>
               </div>
               <select class="select select-bordered w-full" bind:value={settings.creditNoteNumbering} disabled={!canUpdateSettings}>

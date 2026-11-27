@@ -162,6 +162,8 @@
   "Quote Number Pattern": "Nummernmuster für Angebote",
   "Quotes always have their own counter, so they never use up invoice numbers. Use a different prefix than invoices.": "Angebote haben immer einen eigenen Zähler und verbrauchen so keine Rechnungsnummern. Verwende ein anderes Präfix als bei Rechnungen.",
   "Quotes are valid for (days)": "Angebote sind gültig für (Tage)",
+  "Start counter at": "Zähler beginnt bei",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "Die nächste Nummer ist nie kleiner als dieser Wert. Damit lässt sich ein neuer Nummernkreis beginnen oder an die Nummern der bisherigen Software anschließen. Gilt für {SEQ}.",
   "Credit note": "Rechnungskorrektur",
   "Credit Note #": "Rechnungskorrektur #",
   "Create credit note": "Rechnungskorrektur erstellen",

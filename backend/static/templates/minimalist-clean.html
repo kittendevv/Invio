@@ -49,11 +49,15 @@
         width: auto;
       }
       .brand img.logo {
+        /* Fill the logo box and scale the image inside it, so wide logos
+           shrink instead of spilling over the company details. */
+        width: 100%;
         height: 100%;
-        width: auto;
-        display: block;
+        max-width: none;
+        max-height: none;
         object-fit: contain;
-        max-width: 220px;
+        object-position: left top;
+        display: block;
       }
       .invoice-meta {
         float: right;
@@ -328,33 +332,6 @@
           </div>
         </div>
       </div>
-
-      <script>
-        (function () {
-          try {
-            var brand = document.querySelector(".brand");
-            if (!brand) return;
-            var logo = brand.querySelector("img.logo");
-            var info = brand.querySelector(".company-info");
-            if (!logo || !info) return;
-            function fit() {
-              try {
-                logo.style.height = "auto";
-                var h = info.offsetHeight;
-                if (h && h > 0) {
-                  logo.style.height = h + "px";
-                  logo.style.width = "auto";
-                }
-              } catch (e) {}
-            }
-            if (document.fonts && document.fonts.ready) {
-              document.fonts.ready.then(fit);
-            }
-            window.addEventListener("load", fit);
-            setTimeout(fit, 60);
-          } catch (e) {}
-        })();
-      </script>
       <!-- Clear floats below header content -->
       <div style="clear: both"></div>
     </div>

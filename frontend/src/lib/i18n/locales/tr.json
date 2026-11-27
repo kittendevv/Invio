@@ -162,6 +162,8 @@
   "Quote Number Pattern": "Teklif numara deseni",
   "Quotes always have their own counter, so they never use up invoice numbers. Use a different prefix than invoices.": "Tekliflerin her zaman kendi sayacı vardır, bu yüzden fatura numarası kullanmazlar. Faturalardan farklı bir önek kullanın.",
   "Quotes are valid for (days)": "Tekliflerin geçerlilik süresi (gün)",
+  "Start counter at": "Sayacın başlangıç değeri",
+  "The next number is never lower than this. Use it to begin a new number range or to continue from your previous software. Applies to {SEQ}.": "Sonraki numara asla bu değerden küçük olmaz. Yeni bir numara aralığı başlatmak veya önceki yazılımınızdan devam etmek için kullanın. {SEQ} için geçerlidir.",
   "Credit note": "Alacak dekontu",
   "Credit Note #": "Alacak Dekontu #",
   "Create credit note": "Alacak dekontu oluştur",
