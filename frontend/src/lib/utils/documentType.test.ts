@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isCreditNote, signedTotal } from "./documentType";
+import { isCreditNote, isQuote, quoteStatusBadge, signedTotal } from "./documentType";
 
 describe("documentType", () => {
   test("credit notes count negatively", () => {
@@ -13,5 +13,11 @@ describe("documentType", () => {
   test("missing totals count as zero", () => {
     expect(signedTotal(null)).toBe(0);
     expect(signedTotal({ documentType: "credit_note" })).toBe(0);
+  });
+  test("quotes", () => {
+    expect(isQuote({ documentType: "quote" })).toBe(true);
+    expect(isQuote({ documentType: "invoice" })).toBe(false);
+    expect(quoteStatusBadge("accepted")).toBe("badge-success");
+    expect(quoteStatusBadge("draft")).toBe("badge-ghost");
   });
 });

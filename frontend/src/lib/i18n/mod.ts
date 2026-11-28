@@ -59,6 +59,9 @@ const INVOICE_STATUS_LABELS: Record<string, string> = {
   paid: tKey("Paid"),
   overdue: tKey("Overdue"),
   voided: tKey("Voided"),
+  accepted: tKey("Accepted"),
+  declined: tKey("Declined"),
+  expired: tKey("Expired"),
 };
 
 // Translation key for an invoice status, e.g. "paid" -> "Paid"

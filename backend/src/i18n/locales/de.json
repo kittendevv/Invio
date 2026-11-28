@@ -42,5 +42,13 @@
   "creditNoteDateLabel": "Datum der Rechnungskorrektur",
   "creditNoteItemsHeading": "Details der Rechnungskorrektur",
   "creditNoteSummaryHeading": "Zusammenfassung",
-  "creditNoteReferenceLabel": "Korrektur zu Rechnung"
+  "creditNoteReferenceLabel": "Korrektur zu Rechnung",
+  "quoteTitle": "Angebot",
+  "quoteNumberLabel": "Angebotsnummer",
+  "quoteNumberShortLabel": "Angebots-Nr.",
+  "quoteDateLabel": "Angebotsdatum",
+  "quoteValidUntilLabel": "Gültig bis",
+  "quoteItemsHeading": "Angebotsdetails",
+  "quoteSummaryHeading": "Zusammenfassung",
+  "quoteBillToHeading": "Angebot für"
 }

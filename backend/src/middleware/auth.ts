@@ -141,6 +141,26 @@ export function requirePermission(resource: Resource, action: Action) {
 }
 
 /**
+ * Middleware for routes on a single document (`/invoices/:id/...`): quotes
+ * are checked against the "quotes" permissions, invoices and credit notes
+ * against the "invoices" permissions.
+ */
+export function requireDocumentPermission(action: Action) {
+  return async (c: Context, next: Next) => {
+    const id = c.req.param("id");
+    let resource: Resource = "invoices";
+    if (id) {
+      const rows = getDatabase().query(
+        "SELECT document_type FROM invoices WHERE id = ?",
+        [id],
+      ) as unknown[][];
+      if (rows[0]?.[0] === "quote") resource = "quotes";
+    }
+    return await requirePermission(resource, action)(c, next);
+  };
+}
+
+/**
  * Middleware: requires the authenticated user to be an admin.
  */
 export async function requireAdmin(c: Context, next: Next) {

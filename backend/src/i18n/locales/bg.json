@@ -42,5 +42,13 @@
   "creditNoteDateLabel": "Дата на кредитно известие",
   "creditNoteItemsHeading": "Детайли на кредитното известие",
   "creditNoteSummaryHeading": "Обобщение на кредитното известие",
-  "creditNoteReferenceLabel": "Към фактура"
+  "creditNoteReferenceLabel": "Към фактура",
+  "quoteTitle": "Оферта",
+  "quoteNumberLabel": "Номер на оферта",
+  "quoteNumberShortLabel": "Оферта №",
+  "quoteDateLabel": "Дата на офертата",
+  "quoteValidUntilLabel": "Валидна до",
+  "quoteItemsHeading": "Детайли на офертата",
+  "quoteSummaryHeading": "Обобщение на офертата",
+  "quoteBillToHeading": "Оферта за"
 }

@@ -297,6 +297,7 @@ const toNullableNumber = (v: unknown): number | null =>
 
 export const createInvoice = (
   data: CreateInvoiceRequest,
+  documentType: "invoice" | "quote" = "invoice",
 ): InvoiceWithDetails => {
   const db = getDatabase();
   const invoiceId = generateUUID();
@@ -312,6 +313,10 @@ export const createInvoice = (
       // Client requested an explicit number which already exists -> reject
       throw new Error("Invoice number already exists");
     }
+  } else if (documentType === "quote") {
+    // Quotes get their final number right away from their own pattern; they
+    // are not tax documents, so a deleted quote leaving a gap is fine.
+    invoiceNumber = getNextDocumentNumber("quote", data.customerId);
   } else {
     // If advanced numbering pattern with {SEQ}, {CSEQ}, or {CNUM} is active, allocate real number now; else draft placeholder
     try {
@@ -395,6 +400,7 @@ export const createInvoice = (
 
   const invoice: Invoice = {
     id: invoiceId,
+    documentType,
     invoiceNumber: invoiceNumber!,
     customerId: data.customerId,
     issueDate,
@@ -430,8 +436,8 @@ export const createInvoice = (
       id, invoice_number, customer_id, issue_date, due_date, currency, status,
       subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
       payment_terms, notes, share_token, created_at, updated_at,
-      prices_include_tax, rounding_mode, locale
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      prices_include_tax, rounding_mode, locale, document_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       invoice.id,
       invoice.invoiceNumber,
@@ -454,6 +460,7 @@ export const createInvoice = (
       pricesIncludeTax ? 1 : 0,
       roundingMode,
       locale ?? null,
+      documentType,
     ],
   );
   recordStatusChange(db, invoiceId, invoice.status || "draft");
@@ -601,15 +608,25 @@ export const createInvoice = (
   };
 };
 
-export const getInvoices = (): Invoice[] => {
+/**
+ * Invoices and credit notes, or with `quotes` only quotes. The two lists are
+ * kept apart so quotes never show up in invoice lists or revenue figures.
+ */
+export const getInvoices = (
+  options: { quotes?: boolean } = {},
+): Invoice[] => {
   const db = getDatabase();
+  const where = options.quotes
+    ? "WHERE document_type = 'quote'"
+    : "WHERE document_type IS NULL OR document_type != 'quote'";
   const results = db.query(`
     SELECT id, invoice_number, customer_id, issue_date, due_date, currency, status,
            subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
            payment_terms, notes, share_token, created_at, updated_at,
            prices_include_tax, rounding_mode, locale,
-           document_type, credited_invoice_id
+           document_type, credited_invoice_id, quote_id
     FROM invoices
+    ${where}
     ORDER BY created_at DESC
   `);
   const list = results.map((row: unknown[]) => mapRowToInvoice(row));
@@ -624,7 +641,7 @@ export const getInvoiceById = (id: string): InvoiceWithDetails | null => {
            subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
            payment_terms, notes, share_token, created_at, updated_at,
            prices_include_tax, rounding_mode, locale,
-           document_type, credited_invoice_id
+           document_type, credited_invoice_id, quote_id
     FROM invoices
     WHERE id = ?
   `,
@@ -744,7 +761,7 @@ export const getInvoiceByShareToken = (
            subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
            payment_terms, notes, share_token, created_at, updated_at,
            prices_include_tax, rounding_mode, locale,
-           document_type, credited_invoice_id
+           document_type, credited_invoice_id, quote_id
     FROM invoices
     WHERE share_token = ?
   `,
@@ -870,25 +887,40 @@ export const updateInvoice = async (
     throw new Error("Voided invoices cannot be modified.");
   }
 
+  const isQuote = existing.documentType === "quote";
+
   // Validate status transitions
   if (data.status && data.status !== existing.status) {
     const from = existing.status;
     const to = data.status;
-    const allowed: Record<string, string[]> = {
-      draft: ["sent"],
-      sent: ["paid"],
-      complete: [],
-      overdue: ["paid"],
-      paid: ["complete"],
-      voided: [],
-    };
+    const allowed: Record<string, string[]> = isQuote
+      ? {
+        draft: ["sent"],
+        sent: ["accepted", "declined"],
+        expired: ["accepted", "declined"],
+        accepted: [],
+        declined: [],
+      }
+      : {
+        draft: ["sent"],
+        sent: ["paid"],
+        complete: [],
+        overdue: ["paid"],
+        paid: ["complete"],
+        voided: [],
+      };
     if (!(allowed[from] || []).includes(to)) {
       throw new Error(`Cannot change status from '${from}' to '${to}'.`);
     }
   }
 
-  const isIssued = existing.status !== "draft";
-  const allowProtectedChanges = isInvoiceProtectionOverrideEnabled();
+  // Quotes aren't tax documents: they can be revised until the customer
+  // accepts or declines them. Invoices are locked once issued.
+  const isIssued = isQuote
+    ? existing.status === "accepted" || existing.status === "declined"
+    : existing.status !== "draft";
+  const allowProtectedChanges = !isQuote &&
+    isInvoiceProtectionOverrideEnabled();
   if (isIssued && !allowProtectedChanges) {
     const forbidden = [
       "items",
@@ -907,7 +939,9 @@ export const updateInvoice = async (
     for (const k of forbidden) {
       if ((data as Record<string, unknown>)[k] !== undefined) {
         throw new Error(
-          "Issued invoices cannot be modified. Create a credit note instead.",
+          isQuote
+            ? "Accepted or declined quotes cannot be modified. Duplicate the quote instead."
+            : "Issued invoices cannot be modified. Create a credit note instead.",
         );
       }
     }
@@ -1005,7 +1039,11 @@ export const updateInvoice = async (
             ? new Date(data.dueDate)
             : existing.dueDate,
         data.currency ?? existing.currency,
-        data.status ?? storedStatus,
+        // An unchanged status may be a derived one ("overdue", "expired"):
+        // keep the stored status then.
+        data.status && data.status !== existing.status
+          ? data.status
+          : storedStatus,
         totals.subtotal,
         totals.discountAmount,
         data.discountPercentage ?? existing.discountPercentage,
@@ -1232,8 +1270,10 @@ export const deleteInvoice = async (id: string): Promise<boolean> => {
   if (!existing) throw new Error("Invoice not found");
 
   const allowProtectedChanges = isInvoiceProtectionOverrideEnabled();
-  // Only draft invoices can be deleted; issued invoices must be voided for audit trail
+  // Only draft invoices can be deleted; issued invoices must be voided for
+  // audit trail. Quotes are not tax documents and can always be deleted.
   if (
+    existing.documentType !== "quote" &&
     !allowProtectedChanges &&
     existing.status !== "draft" &&
     existing.status !== "voided"
@@ -1256,19 +1296,35 @@ export const deleteInvoice = async (id: string): Promise<boolean> => {
 
 export const duplicateInvoice = async (
   id: string,
-  options: { asCreditNote?: boolean } = {},
+  options: { asCreditNote?: boolean; asInvoice?: boolean } = {},
 ): Promise<InvoiceWithDetails | null> => {
   const original = await getInvoiceById(id);
   if (!original) return null;
-  const { asCreditNote = false } = options;
+  const { asCreditNote = false, asInvoice = false } = options;
   // A duplicate keeps the document type (and credited invoice) of the
-  // original; a credit note always credits the original.
+  // original; a credit note always credits the original, and an invoice
+  // made from a quote remembers that quote.
   const documentType = asCreditNote
     ? "credit_note"
+    : asInvoice
+    ? "invoice"
     : (original.documentType || "invoice");
   const creditedInvoiceId = asCreditNote
     ? original.id
+    : asInvoice
+    ? null
     : (original.creditedInvoiceId ?? null);
+  const quoteId = asInvoice && original.documentType === "quote"
+    ? original.id
+    : null;
+  // Quotes are numbered right away (see createInvoice); everything else gets
+  // its final number when it leaves draft.
+  const newNumber = documentType === "quote"
+    ? getNextDocumentNumber("quote", original.customerId)
+    : generateDraftInvoiceNumber();
+  // Neither a credit note nor an invoice takes over the original's due date
+  // (or a quote's valid-until date)
+  const resetDates = asCreditNote || asInvoice;
   const db = getDatabase();
   const newId = generateUUID();
   const newShare = generateShareToken();
@@ -1317,16 +1373,16 @@ export const duplicateInvoice = async (
       subtotal, discount_amount, discount_percentage, tax_rate, tax_amount, total,
       payment_terms, notes, share_token, created_at, updated_at,
       prices_include_tax, rounding_mode, locale,
-      document_type, credited_invoice_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      document_type, credited_invoice_id, quote_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
       [
         newId,
-        generateDraftInvoiceNumber(),
+        newNumber,
         original.customerId,
         now,
         // Nothing is due on a credit note, and the invoice's terms don't apply
-        asCreditNote ? null : (original.dueDate || null),
+        resetDates ? null : (original.dueDate || null),
         original.currency,
         "draft",
         totals.subtotal,
@@ -1336,7 +1392,8 @@ export const duplicateInvoice = async (
         totals.taxAmount,
         totals.total,
         asCreditNote ? null : (original.paymentTerms || null),
-        asCreditNote ? null : (original.notes || null),
+        // A quote's notes (e.g. its validity) don't belong on the invoice
+        resetDates ? null : (original.notes || null),
         newShare,
         now,
         now,
@@ -1345,6 +1402,7 @@ export const duplicateInvoice = async (
         (original as Invoice).locale ?? null,
         documentType,
         creditedInvoiceId,
+        quoteId,
       ],
     );
     // Copy items
@@ -1353,7 +1411,7 @@ export const duplicateInvoice = async (
       // New draft: take current product values, keep the original's if the
       // product is gone. A credit note reverses the invoice exactly, so it
       // always keeps the invoice's values.
-      const snapshot = !asCreditNote && it.productId &&
+      const snapshot = !asCreditNote && !asInvoice && it.productId &&
           getProductById(it.productId)
         ? snapshotProduct(it.productId)
         : it;
@@ -1467,6 +1525,9 @@ export const createCreditNote = async (
   if (invoice.documentType === "credit_note") {
     throw new Error("A credit note cannot be credited");
   }
+  if (invoice.documentType === "quote") {
+    throw new Error("A quote cannot be credited");
+  }
   if (!CREDITABLE_STATUSES.has(invoice.status)) {
     throw new Error(
       "Only issued invoices can be credited. Edit or delete a draft instead; a voided invoice needs no credit note.",
@@ -1475,6 +1536,38 @@ export const createCreditNote = async (
   const note = await duplicateInvoice(invoiceId, { asCreditNote: true });
   if (!note) throw new Error("Failed to create credit note");
   return note;
+};
+
+const CONVERTIBLE_QUOTE_STATUSES = new Set(["sent", "expired", "accepted"]);
+
+/**
+ * Create a draft invoice from a quote: copies the quote's customer, lines,
+ * discount and tax settings, links the invoice to the quote and marks the
+ * quote as accepted.
+ */
+export const createInvoiceFromQuote = async (
+  quoteId: string,
+): Promise<InvoiceWithDetails> => {
+  const quote = await getInvoiceById(quoteId);
+  if (!quote || quote.documentType !== "quote") {
+    throw new Error("Quote not found");
+  }
+  if (!CONVERTIBLE_QUOTE_STATUSES.has(quote.status)) {
+    throw new Error(
+      "Only sent or accepted quotes can be turned into an invoice. Send the quote first; a declined quote can be duplicated.",
+    );
+  }
+  const invoice = await duplicateInvoice(quoteId, { asInvoice: true });
+  if (!invoice) throw new Error("Failed to create invoice");
+  if (quote.status !== "accepted") {
+    const db = getDatabase();
+    db.query(
+      "UPDATE invoices SET status = 'accepted', updated_at = ? WHERE id = ?",
+      [new Date(), quoteId],
+    );
+    recordStatusChange(db, quoteId, "accepted");
+  }
+  return invoice;
 };
 
 export const publishInvoice = async (
@@ -1571,6 +1664,9 @@ export const unpublishInvoice = async (
 export const voidInvoice = async (id: string): Promise<{ success: true }> => {
   const existing = await getInvoiceById(id);
   if (!existing) throw new Error("Invoice not found");
+  if (existing.documentType === "quote") {
+    throw new Error("Quotes cannot be voided. Decline or delete the quote instead.");
+  }
   if (existing.status === "voided") {
     throw new Error("Invoice is already voided");
   }
@@ -1621,30 +1717,52 @@ function toReference(row: unknown[]): InvoiceReference {
 }
 
 /**
- * Links between invoices and credit notes: the invoice a credit note credits
- * and, when `includeCreditNotes` is set, the credit notes issued against an
- * invoice.
+ * Links between documents: the invoice a credit note credits, the quote an
+ * invoice was made from, and, when `includeRelated` is set (not on public
+ * links), the credit notes of an invoice and the invoices made from a quote.
  */
 function documentReferences(
   invoice: Invoice,
-  includeCreditNotes: boolean,
-): Pick<InvoiceWithDetails, "creditedInvoice" | "creditNotes"> {
+  includeRelated: boolean,
+): Pick<
+  InvoiceWithDetails,
+  "creditedInvoice" | "creditNotes" | "quote" | "invoices"
+> {
   const db = getDatabase();
   const cols = "id, invoice_number, issue_date, status, total";
+  const one = (id?: string) => {
+    if (!id) return undefined;
+    const rows = db.query(`SELECT ${cols} FROM invoices WHERE id = ?`, [id]);
+    return rows.length ? toReference(rows[0]) : undefined;
+  };
+  const many = (where: string, id: string) =>
+    db.query(
+      `SELECT ${cols} FROM invoices WHERE ${where} ORDER BY created_at`,
+      [id],
+    ).map(toReference);
+  const out: ReturnType<typeof documentReferences> = {};
+
   if (invoice.documentType === "credit_note") {
-    if (!invoice.creditedInvoiceId) return {};
-    const rows = db.query(
-      `SELECT ${cols} FROM invoices WHERE id = ?`,
-      [invoice.creditedInvoiceId],
-    );
-    return rows.length ? { creditedInvoice: toReference(rows[0]) } : {};
+    out.creditedInvoice = one(invoice.creditedInvoiceId);
+  } else if (invoice.documentType === "quote") {
+    if (includeRelated) {
+      const invoices = many("quote_id = ?", invoice.id);
+      if (invoices.length) out.invoices = invoices;
+    }
+  } else {
+    if (includeRelated) {
+      out.quote = one(invoice.quoteId);
+      const notes = many(
+        "credited_invoice_id = ? AND document_type = 'credit_note'",
+        invoice.id,
+      );
+      if (notes.length) out.creditNotes = notes;
+    }
   }
-  if (!includeCreditNotes) return {};
-  const rows = db.query(
-    `SELECT ${cols} FROM invoices WHERE credited_invoice_id = ? AND document_type = 'credit_note' ORDER BY created_at`,
-    [invoice.id],
-  );
-  return rows.length ? { creditNotes: rows.map(toReference) } : {};
+  for (const k of Object.keys(out) as (keyof typeof out)[]) {
+    if (out[k] === undefined) delete out[k];
+  }
+  return out;
 }
 
 // Helper functions
@@ -1677,8 +1795,11 @@ function mapRowToInvoice(row: unknown[]): Invoice {
     pricesIncludeTax: Boolean(row[18] as number),
     roundingMode: (row[19] as string) || "line",
     locale: (row[20] as string) || undefined,
-    documentType: row[21] === "credit_note" ? "credit_note" : "invoice",
+    documentType: row[21] === "credit_note" || row[21] === "quote"
+      ? row[21]
+      : "invoice",
     creditedInvoiceId: (row[22] as string) || undefined,
+    quoteId: (row[23] as string) || undefined,
   };
 }
 
@@ -1690,7 +1811,8 @@ function applyDerivedOverdue<
   // paid/voided/complete invoices are settled.
   if (inv.status !== "sent") return inv;
   if (!inv.dueDate) return inv;
-  if ((inv as { documentType?: string }).documentType === "credit_note") {
+  const documentType = (inv as { documentType?: string }).documentType;
+  if (documentType === "credit_note") {
     return inv;
   }
   const today = new Date();
@@ -1701,7 +1823,9 @@ function applyDerivedOverdue<
   );
   const td = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   if (dd < td) {
-    (inv as unknown as { status: Invoice["status"] }).status = "overdue";
+    // A sent quote past its valid-until date (stored in due_date) expires
+    (inv as unknown as { status: Invoice["status"] }).status =
+      documentType === "quote" ? "expired" : "overdue";
   }
   return inv;
 }

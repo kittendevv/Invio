@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import "@fontsource-variable/inter/wght.css";
-  import { LayoutDashboard, LogOut, Ellipsis, Package, ReceiptText, Settings, UserCog, Users } from "lucide-svelte";
+  import { FileText, LayoutDashboard, LogOut, Ellipsis, Package, ReceiptText, Settings, UserCog, Users } from "lucide-svelte";
   import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
   import "./layout.css";
   import DemoAlert from "$lib/components/DemoAlert.svelte";
@@ -28,6 +28,7 @@
   }
 
   let canViewInvoices = $derived(hasPermission("invoices", "read"));
+  let canViewQuotes = $derived(hasPermission("quotes", "read"));
   let canViewProducts = $derived(hasPermission("products", "read"));
   let canViewCustomers = $derived(hasPermission("customers", "read"));
   let canViewSettings = $derived(hasPermission("settings", "read"));
@@ -87,6 +88,14 @@
                   {t("Dashboard")}
                 </a>
               </li>
+              {#if canViewQuotes}
+                <li>
+                  <a href="/quotes">
+                    <FileText size={16} />
+                    {t("Quotes")}
+                  </a>
+                </li>
+              {/if}
               {#if canViewInvoices}
                 <li>
                   <a href="/invoices">
@@ -159,6 +168,14 @@
                     {t("Dashboard")}
                   </a>
                 </li>
+                {#if canViewQuotes}
+                  <li>
+                    <a href="/quotes">
+                      <FileText size={16} />
+                      {t("Quotes")}
+                    </a>
+                  </li>
+                {/if}
                 {#if canViewInvoices}
                   <li>
                     <a href="/invoices">

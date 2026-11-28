@@ -327,6 +327,9 @@ publicRoutes.get("/public/invoices/:share_token/ubl.xml", async (c) => {
   if (!invoice) {
     return c.json({ message: "Invoice not found" }, 404);
   }
+  if (invoice.documentType === "quote") {
+    return c.json({ message: "Quotes have no e-invoice XML" }, 400);
+  }
 
   const settings = getSettings();
   const settingsMap = settings.reduce(
@@ -379,6 +382,9 @@ publicRoutes.get("/public/invoices/:share_token/xml", async (c) => {
   const shareToken = c.req.param("share_token");
   const invoice = await getInvoiceByShareToken(shareToken);
   if (!invoice) return c.json({ message: "Invoice not found" }, 404);
+  if (invoice.documentType === "quote") {
+    return c.json({ message: "Quotes have no e-invoice XML" }, 400);
+  }
 
   const settings = getSettings();
   const settingsMap = settings.reduce(

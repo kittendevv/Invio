@@ -464,6 +464,12 @@
 {#if invoice}
   <div class="mt-6 mb-8 grid grid-cols-1 gap-x-8 gap-y-4 text-sm md:grid-cols-2">
     <div class="space-y-4">
+      {#if invoice.quote}
+        <div>
+          <span class="mr-1 opacity-70">{t("Created from quote")}:</span>
+          <a class="link font-medium" href="/quotes/{invoice.quote.id}">{invoice.quote.invoiceNumber}</a>
+        </div>
+      {/if}
       {#if creditNote && invoice.creditedInvoice}
         <div>
           <span class="mr-1 opacity-70">{t("Credit note for invoice")}:</span>

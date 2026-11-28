@@ -295,8 +295,10 @@ function buildContext(
     requestedLocale,
   );
   const isCreditNote = invoice.documentType === "credit_note";
-  // Templates only know the invoice labels; a credit note swaps in its own
-  // wording so every template (including custom ones) renders it correctly.
+  const isQuote = invoice.documentType === "quote";
+  // Templates only know the invoice labels; credit notes and quotes swap in
+  // their own wording so every template (including custom ones) renders
+  // them correctly. A quote's due date is its valid-until date.
   const labels = isCreditNote
     ? {
       ...baseLabels,
@@ -306,6 +308,19 @@ function buildContext(
       invoiceDateLabel: baseLabels.creditNoteDateLabel,
       itemsHeading: baseLabels.creditNoteItemsHeading,
       summaryHeading: baseLabels.creditNoteSummaryHeading,
+    }
+    : isQuote
+    ? {
+      ...baseLabels,
+      invoiceTitle: baseLabels.quoteTitle,
+      invoiceNumberLabel: baseLabels.quoteNumberLabel,
+      invoiceNumberShortLabel: baseLabels.quoteNumberShortLabel,
+      invoiceDateLabel: baseLabels.quoteDateLabel,
+      dueDateLabel: baseLabels.quoteValidUntilLabel,
+      dueShortLabel: baseLabels.quoteValidUntilLabel,
+      itemsHeading: baseLabels.quoteItemsHeading,
+      summaryHeading: baseLabels.quoteSummaryHeading,
+      billToHeading: baseLabels.quoteBillToHeading,
     }
     : baseLabels;
   const currency = invoice.currency || settings?.currency || "USD";
@@ -372,6 +387,7 @@ function buildContext(
     currency,
     status: invoice.status,
     isCreditNote,
+    isQuote,
     creditedInvoiceNumber: invoice.creditedInvoice?.invoiceNumber,
     creditedInvoiceDate: formatDate(
       invoice.creditedInvoice?.issueDate,
@@ -435,8 +451,9 @@ function buildContext(
 
     // Payment
     paymentTerms: invoice.paymentTerms || settings?.paymentTerms || undefined,
-    paymentMethods: settings?.paymentMethods || undefined,
-    bankAccount: settings?.bankAccount || undefined,
+    // Nothing is payable on a quote yet
+    paymentMethods: isQuote ? undefined : settings?.paymentMethods || undefined,
+    bankAccount: isQuote ? undefined : settings?.bankAccount || undefined,
 
     // Notes
     notes: invoice.notes || settings?.defaultNotes || undefined,
@@ -465,6 +482,8 @@ export function documentFileName(
 ): string {
   const prefix = invoice.documentType === "credit_note"
     ? "credit-note"
+    : invoice.documentType === "quote"
+    ? "quote"
     : "invoice";
   return `${prefix}-${invoice.invoiceNumber || fallback}.${extension}`;
 }
@@ -498,7 +517,8 @@ export async function generateInvoicePDF(
   );
   const attachments: Array<{ fileName: string; bytes: Uint8Array }> = [];
   let facturx: { xml: Uint8Array; profile: XMLProfile } | undefined;
-  if (opts?.embedXml) {
+  // Quotes are not invoices: never attach e-invoice XML to them
+  if (opts?.embedXml && invoiceData.documentType !== "quote") {
     try {
       const profileId = opts.embedXmlProfileId || "ubl21";
       const { xml, profile } = generateInvoiceXML(

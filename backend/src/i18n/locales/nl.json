@@ -42,5 +42,13 @@
   "creditNoteDateLabel": "Creditnotadatum",
   "creditNoteItemsHeading": "Details creditnota",
   "creditNoteSummaryHeading": "Overzicht creditnota",
-  "creditNoteReferenceLabel": "Creditnota voor factuur"
+  "creditNoteReferenceLabel": "Creditnota voor factuur",
+  "quoteTitle": "Offerte",
+  "quoteNumberLabel": "Offertenummer",
+  "quoteNumberShortLabel": "Offerte nr.",
+  "quoteDateLabel": "Offertedatum",
+  "quoteValidUntilLabel": "Geldig tot",
+  "quoteItemsHeading": "Details offerte",
+  "quoteSummaryHeading": "Overzicht offerte",
+  "quoteBillToHeading": "Offerte voor"
 }

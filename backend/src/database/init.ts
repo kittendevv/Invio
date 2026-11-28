@@ -210,6 +210,7 @@ function ensureInvoiceColumns(database: DB): void {
     "TEXT DEFAULT 'invoice'",
   );
   addColumnIfMissing(database, "invoices", "credited_invoice_id", "TEXT");
+  addColumnIfMissing(database, "invoices", "quote_id", "TEXT");
 }
 
 function ensureInvoiceItemColumns(database: DB): void {
@@ -410,13 +411,14 @@ function migrateInvoicesForVoided(database: DB): void {
   const createSql = checkSql.length > 0 ? String(checkSql[0][0]) : "";
   if (
     !createSql ||
-    (createSql.includes("voided") && createSql.includes("complete"))
+    (createSql.includes("voided") && createSql.includes("complete") &&
+      createSql.includes("accepted"))
   ) {
     return;
   }
 
   console.log(
-    "Migrating invoices table to support 'voided' and 'complete' statuses",
+    "Migrating invoices table to support the 'voided', 'complete', 'accepted' and 'declined' statuses",
   );
 
   const itemCountBefore = Number(
@@ -435,7 +437,7 @@ function migrateInvoicesForVoided(database: DB): void {
         issue_date DATE NOT NULL,
         due_date DATE,
         currency TEXT DEFAULT 'USD',
-        status TEXT CHECK(status IN ('draft','sent','complete','paid','overdue','voided')) DEFAULT 'draft',
+        status TEXT CHECK(status IN ('draft','sent','complete','paid','overdue','voided','accepted','declined')) DEFAULT 'draft',
         subtotal NUMERIC NOT NULL DEFAULT 0,
         discount_amount NUMERIC DEFAULT 0,
         discount_percentage NUMERIC DEFAULT 0,
@@ -451,7 +453,8 @@ function migrateInvoicesForVoided(database: DB): void {
         rounding_mode TEXT DEFAULT 'line',
         locale TEXT,
         document_type TEXT DEFAULT 'invoice',
-        credited_invoice_id TEXT
+        credited_invoice_id TEXT,
+        quote_id TEXT
       )
     `);
 
@@ -484,7 +487,7 @@ function migrateInvoicesForVoided(database: DB): void {
 
     database.execute("COMMIT");
     console.log(
-      " Migrated invoices table to support 'voided' and 'complete' statuses",
+      " Migrated invoices table to support the new statuses",
     );
   } catch (migErr) {
     database.execute("ROLLBACK");
@@ -931,6 +934,7 @@ export function getNextInvoiceNumber(
 }
 
 export const DEFAULT_CREDIT_NOTE_PATTERN = "CN-{YYYY}-{SEQ}";
+export const DEFAULT_QUOTE_PATTERN = "QUO-{YYYY}-{SEQ}";
 
 /**
  * Final number for a document leaving draft. Credit notes share the invoice
@@ -941,6 +945,15 @@ export function getNextDocumentNumber(
   documentType: string | undefined,
   customerId?: string,
 ): string {
+  // Quotes always have their own pattern and counter: they are not tax
+  // documents and must never use up (or leave gaps in) invoice numbers.
+  if (documentType === "quote") {
+    const rows = getDatabase().query(
+      "SELECT value FROM settings WHERE key = 'quoteNumberPattern' LIMIT 1",
+    ) as [string][];
+    const pattern = String(rows[0]?.[0] ?? "").trim() || DEFAULT_QUOTE_PATTERN;
+    return getNextInvoiceNumber(customerId, pattern);
+  }
   if (documentType === "credit_note") {
     const rows = getDatabase().query(
       "SELECT key, value FROM settings WHERE key IN ('creditNoteNumbering','creditNoteNumberPattern')",
