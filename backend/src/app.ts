@@ -140,4 +140,8 @@ if (Number.isNaN(port) || port <= 0) {
 }
 const listenPort = Number.isFinite(port) && port > 0 ? port : 3000;
 console.log(`Starting backend on port ${listenPort}`);
-Deno.serve({ port: listenPort }, app.fetch);
+// Pass the peer address so the login rate limiter can key on it.
+Deno.serve(
+  { port: listenPort },
+  (req, info) => app.fetch(req, { remoteAddr: info.remoteAddr }),
+);

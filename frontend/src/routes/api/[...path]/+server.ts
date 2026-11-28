@@ -1,18 +1,12 @@
 import { getAuthHeaderFromCookie } from "$lib/auth";
 import { BACKEND_URL } from "$lib/backend";
+import { buildBackendHeaders } from "$lib/forwardHeaders";
 import type { RequestHandler } from "@sveltejs/kit";
 
-export const fallback: RequestHandler = async ({ request, url, cookies }) => {
+export const fallback: RequestHandler = async ({ request, url, cookies, getClientAddress }) => {
   const backendUrl = new URL(url.pathname + url.search, BACKEND_URL);
 
-  const headers = new Headers();
-  for (const [k, v] of request.headers.entries()) {
-    const lowerK = k.toLowerCase();
-    if (lowerK === "host") continue;
-    if (lowerK === "content-length") continue;
-    if (lowerK === "accept-encoding") continue; // Prevent backend compression
-    headers.set(k, v);
-  }
+  const headers = buildBackendHeaders(request.headers, getClientAddress());
 
   if (!headers.has("authorization")) {
     const token = cookies.get("invio_session");

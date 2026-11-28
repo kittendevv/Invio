@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { createJWT } from "../utils/jwt.ts";
 import { verifyJWTPayload } from "../utils/jwt.ts";
 import {
@@ -131,9 +131,15 @@ function markChallengeAsUsed(jti: string): void {
 
 const authRoutes = new Hono();
 
+/** Peer address passed in by Deno.serve in app.ts, if any. */
+function peerAddress(c: Context): string | undefined {
+  const addr = (c.env as { remoteAddr?: Deno.Addr } | undefined)?.remoteAddr;
+  return addr && addr.transport === "tcp" ? addr.hostname : undefined;
+}
+
 authRoutes.post("/auth/login", async (c) => {
   const config = getRateLimitConfig();
-  const clientIp = getClientIp(c.req.raw.headers, config.trustProxy);
+  const clientIp = getClientIp(c.req.raw.headers, peerAddress(c), config.trustProxy);
 
   let username: string | undefined;
   let password: string | undefined;
@@ -204,7 +210,7 @@ authRoutes.post("/auth/verify-2fa", async (c) => {
   }
 
   const config = getRateLimitConfig();
-  const clientIp = getClientIp(c.req.raw.headers, config.trustProxy);
+  const clientIp = getClientIp(c.req.raw.headers, peerAddress(c), config.trustProxy);
 
   let twoFactorToken: string | undefined;
   let token: string | undefined;
@@ -264,7 +270,7 @@ authRoutes.post("/auth/recover-2fa", async (c) => {
   }
 
   const config = getRateLimitConfig();
-  const clientIp = getClientIp(c.req.raw.headers, config.trustProxy);
+  const clientIp = getClientIp(c.req.raw.headers, peerAddress(c), config.trustProxy);
 
   let twoFactorToken: string | undefined;
   let recoveryCode: string | undefined;
